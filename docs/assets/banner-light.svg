@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 672" width="1536" height="672" role="img" aria-label="bur">
+  <title>bur - a cage for your coding agent</title>
+  <rect width="1536" height="672" fill="#EDF0F8"/>
+  <g transform="translate(296.6,363.8) scale(0.98)">
+  <defs>
+    <clipPath id="cage-l"><path d="M-150,150 L-150,-60 Q-150,-190 0,-190 Q150,-190 150,-60 L150,150 Z"/></clipPath>
+    <radialGradient id="glow-l" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#D9741A" stop-opacity=".22"/>
+      <stop offset="55%"  stop-color="#D9741A" stop-opacity=".07"/>
+      <stop offset="100%" stop-color="#D9741A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path d="M-150,150 L-150,-60 Q-150,-190 0,-190 Q150,-190 150,-60 L150,150 Z" fill="#FBFCFE"/>
+  <circle cx="0" cy="-10" r="145" fill="url(#glow-l)"/>
+  <g fill="none" stroke="#D9741A" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-92,-58 L-30,4 L-92,66"/>
+    <path d="M0,66 L92,66"/>
+  </g>
+  <g clip-path="url(#cage-l)" fill="none" stroke="#1A2033"
+     stroke-width="15" opacity=".82"><path d="M-112.5,152 L-112.5,-205"/><path d="M-37.5,152 L-37.5,-205"/><path d="M37.5,152 L37.5,-205"/><path d="M112.5,152 L112.5,-205"/></g>
+  <g fill="none" stroke="#1A2033" stroke-width="17"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-150,150 L-150,-60 Q-150,-190 0,-190 Q150,-190 150,-60 L150,150"/>
+    <path d="M-150,-60 L150,-60"/>
+  </g>
+  <rect x="-168" y="150" width="336" height="42" rx="21" fill="#1A2033"/>
+  <path d="M0.0,-244.0 L0.0,-296.0 M0.0,-274.2 L-12.2,-288.7 M0.0,-274.2 L12.2,-288.7 M0.0,-244.0 L45.0,-270.0 M26.1,-259.1 L32.6,-276.9 M26.1,-259.1 L44.8,-255.8 M0.0,-244.0 L45.0,-218.0 M26.1,-228.9 L44.8,-232.2 M26.1,-228.9 L32.6,-211.1 M0.0,-244.0 L-0.0,-190.0 M-0.0,-213.8 L12.2,-199.3 M-0.0,-213.8 L-12.2,-199.3 M0.0,-244.0 L-45.0,-218.0 M-26.1,-228.9 L-32.6,-211.1 M-26.1,-228.9 L-44.8,-232.2 M0.0,-244.0 L-45.0,-270.0 M-26.1,-259.1 L-44.8,-255.8 M-26.1,-259.1 L-32.6,-276.9" fill="none" stroke="#3F6FD8" stroke-width="14" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(589,552) scale(1.1)">
+  <g fill="none" stroke="#141A2B" stroke-width="66" stroke-linecap="round">
+    <path d="M0,-357 L0,-33"/>
+    <circle cx="92" cy="-125" r="92"/>
+    <path d="M308,-217 L308,-125 A92,92 0 0 0 400,-33 A92,92 0 0 0 492,-125 L492,-217"/>
+    <path d="M616,-217 L616,-33"/>
+    <path d="M616,-125 A92,92 0 0 1 708,-217"/>
+  </g>
+  </g>
+</svg>
