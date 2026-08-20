@@ -8,7 +8,7 @@
 **`bur`: a cage for your coding agent, built for the nix ecosystem**
 
 
-![Build status](https://img.shields.io/github/actions/workflow/status/jeliasson/bur/test.yaml?branch=main&logo=github&label=test)
+![Build status](https://img.shields.io/github/actions/workflow/status/jeliasson/bur/pipeline.yaml?branch=main&logo=github&label=CI)
 ![Go version](https://img.shields.io/github/go-mod/go-version/jeliasson/bur?logo=go&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-97ca00)
 ![Nix flake](https://img.shields.io/badge/nix-flake-5277C3?logo=nixos&logoColor=white)
