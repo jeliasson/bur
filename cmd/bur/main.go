@@ -17,9 +17,10 @@ import (
 // Set via -ldflags at build time (-X main.version etc.); wired into the
 // internal packages at startup.
 var (
-	version      = "dev"
-	baseImageTar = ""
-	baseImageRef = ""
+	version       = "dev"
+	baseImageTar  = ""
+	baseImageRef  = ""
+	baseImageRoot = ""
 )
 
 const usage = `bur - run an AI agent (or anything) in a one-shot rootless podman sandbox
@@ -44,6 +45,7 @@ func main() {
 	clipboard.Version = version
 	sandbox.BaseImageTar = baseImageTar
 	sandbox.BaseImageRef = baseImageRef
+	sandbox.BaseImageRoot = baseImageRoot
 
 	// bur doubles as its own clipboard shim: inside a sandbox,
 	// /run/bur/bin/{wl-paste,xclip} link back to this binary.

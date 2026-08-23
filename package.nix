@@ -13,18 +13,46 @@
 }:
 
 let
+  # The image's /bin symlinks resolve against the host store, which is
+  # mounted over the image's own - so this closure has to survive gc there.
+  baseRoot = buildEnv {
+    name = "bur-base-root";
+    paths = [ bashInteractive coreutils cacert ];
+    pathsToLink = [ "/bin" "/etc" ];
+  };
+
   base = dockerTools.buildImage {
     name = "bur-base";
 
-    copyToRoot = buildEnv {
-      name = "bur-base-root";
-      paths = [ bashInteractive coreutils cacert dockerTools.fakeNss ];
-      pathsToLink = [ "/bin" "/etc" "/var" ];
-    };
+    copyToRoot = baseRoot;
 
+    # Real files, not dockerTools.fakeNss: its store symlinks dangle once
+    # the host gcs them, and a broken /etc/passwd both fails every
+    # getpwuid() and stops podman's --userns=keep-id writing the real user.
     extraCommands = ''
-      mkdir -p tmp home/bur run/bur
+      mkdir -p tmp home/bur run/bur var/empty
       chmod 1777 tmp
+
+      # buildEnv links a whole directory when only cacert provides it.
+      if [ -L etc ]; then
+        etcTarget=$(readlink -f etc)
+        rm etc && mkdir etc && cp -a "$etcTarget"/. etc/
+      fi
+      mkdir -p etc
+      chmod -R u+w etc
+      rm -f etc/passwd etc/group etc/nsswitch.conf
+
+      cat > etc/passwd <<'EOF'
+      root:x:0:0:System administrator:/root:/bin/sh
+      nobody:x:65534:65534:Unprivileged account:/var/empty:/bin/sh
+      EOF
+
+      cat > etc/group <<'EOF'
+      root:x:0:
+      nobody:x:65534:
+      EOF
+
+      echo 'hosts: files dns' > etc/nsswitch.conf
     '';
 
     config = {
@@ -52,6 +80,9 @@ buildGoModule rec {
     "-X main.version=${version}"
     "-X main.baseImageTar=${base}"
     "-X main.baseImageRef=bur-base:${base.imageTag}"
+    # Embedding the path is what makes it a runtime dep, so a gc root on
+    # bur keeps it alive; the image tar is compressed and scans as none.
+    "-X main.baseImageRoot=${baseRoot}"
   ];
 
   passthru.baseImage = base;
