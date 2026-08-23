@@ -20,6 +20,8 @@ import (
 var (
 	BaseImageTar = ""
 	BaseImageRef = ""
+	// Store path the image's /bin symlinks point into, resolved on the host.
+	BaseImageRoot = ""
 )
 
 const containerHome = "/home/bur"
@@ -87,6 +89,12 @@ func EnsureBaseImage() error {
 			return nil
 		}
 		return fmt.Errorf("no base image embedded in this build (set BUR_BASE_IMAGE for dev builds)")
+	}
+	// Gone from the host store means the image's /bin dangles - no shell.
+	if BaseImageRoot != "" {
+		if _, err := os.Stat(BaseImageRoot); err != nil {
+			fmt.Fprintf(os.Stderr, "bur: warning: %s is missing from the host store, the sandbox may have no working shell (nix-store --realise it, or reinstall bur)\n", BaseImageRoot)
+		}
 	}
 	if exec.Command("podman", "image", "exists", BaseImageRef).Run() == nil {
 		return nil
