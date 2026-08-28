@@ -7,7 +7,7 @@ ARGS    ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build run test vet fmt tidy clean base-image nix-build
+.PHONY: help build run test vet fmt tidy clean base-image nix-build release
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## /{printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -38,3 +38,6 @@ base-image: ## Build the bur-base image and load it into podman
 
 nix-build: ## Build the release package via the flake
 	nix build
+
+release: ## Cut a release branch, e.g. make release or make release BUMP=minor
+	@./scripts/release.sh $(BUMP)
