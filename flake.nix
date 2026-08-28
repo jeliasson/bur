@@ -26,6 +26,16 @@
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
           packages = [ pkgs.go pkgs.gopls ];
+
+          # Source builds embed no base image; `make base-image` loads the
+          # tar this tag belongs to.
+          BUR_BASE_IMAGE = "bur-base:${self.packages.${pkgs.stdenv.hostPlatform.system}.bur.baseImage.imageTag}";
+
+          shellHook = ''
+            if command -v podman >/dev/null && ! podman image exists "$BUR_BASE_IMAGE"; then
+              echo "bur: run 'make base-image' to load $BUR_BASE_IMAGE"
+            fi
+          '';
         };
       });
 
