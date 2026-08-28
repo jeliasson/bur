@@ -10,6 +10,7 @@ import (
 	"github.com/jeliasson/bur/internal/clipboard"
 	"github.com/jeliasson/bur/internal/config"
 	"github.com/jeliasson/bur/internal/nixenv"
+	"github.com/jeliasson/bur/internal/pkgbridge"
 	"github.com/jeliasson/bur/internal/ports"
 	"github.com/jeliasson/bur/internal/sandbox"
 )
@@ -44,14 +45,18 @@ Config: ~/.config/bur/config.yaml (global), .bur.yaml (project),
 
 func main() {
 	clipboard.Version = version
+	pkgbridge.Version = version
 	sandbox.BaseImageTar = baseImageTar
 	sandbox.BaseImageRef = baseImageRef
 	sandbox.BaseImageRoot = baseImageRoot
 
-	// bur doubles as its own clipboard shim: inside a sandbox,
-	// /run/bur/bin/{wl-paste,xclip} link back to this binary.
-	if base := filepath.Base(os.Args[0]); base == "wl-paste" || base == "xclip" {
+	// bur doubles as its own bridge shims: inside a sandbox,
+	// /run/bur/bin/{wl-paste,xclip,bur-pkg} link back to this binary.
+	switch base := filepath.Base(os.Args[0]); base {
+	case "wl-paste", "xclip":
 		os.Exit(clipboard.RunShim(base, os.Args[1:], os.Stdout, os.Stderr))
+	case "bur-pkg":
+		os.Exit(pkgbridge.RunShim(os.Args[1:], os.Stdout, os.Stderr))
 	}
 
 	args := os.Args[1:]
@@ -165,6 +170,20 @@ func run(args []string) error {
 		}
 	}
 
+	pkgAdd := false
+	if cfg.NixPkgAdd {
+		if _, err := exec.LookPath("nix"); err != nil {
+			fmt.Fprintln(os.Stderr, "bur: note: bur-pkg disabled: nix not found on host PATH")
+		} else if err := pkgbridge.StartBridge(envDir); err != nil {
+			fmt.Fprintln(os.Stderr, "bur: warning: package bridge failed to start:", err)
+		} else {
+			pkgAdd = true
+		}
+	}
+	if err := writeAgentMD(envDir, pkgAdd); err != nil {
+		fmt.Fprintln(os.Stderr, "bur: warning: writing AGENT.md:", err)
+	}
+
 	var portMaps []ports.Mapping
 	if cfg.Network == "none" {
 		if len(cfg.Ports) > 0 {
@@ -239,6 +258,38 @@ func cmdClean(force bool) error {
 		fmt.Println("nothing to clean")
 	}
 	return nil
+}
+
+// agentMD lands at /run/bur/AGENT.md: orientation for the agent on what
+// cage it is in and what the bridges offer.
+const agentMD = `# bur sandbox
+
+This shell runs inside bur, a one-shot rootless container. The project is
+mounted read-write at its real path; the rest of the host is not visible.
+The PATH comes from the project's nix devshell, and everything outside
+the project directory vanishes when the sandbox exits.
+`
+
+const agentMDPkg = `
+## Missing a tool?
+
+Install extra tools from nixpkgs without leaving the sandbox:
+
+    bur-pkg add <package> [<package>...]
+
+Example: bur-pkg add imagemagick, then use magick. New tools land on PATH
+immediately, in this very shell - no restart, no rebuild. They are fetched
+by the host (this works even when the sandbox has no network) and are gone
+when the sandbox exits. Package names are nixpkgs attribute names: try the
+obvious name first, or search https://search.nixos.org/packages.
+`
+
+func writeAgentMD(envDir string, pkgAdd bool) error {
+	doc := agentMD
+	if pkgAdd {
+		doc += agentMDPkg
+	}
+	return os.WriteFile(filepath.Join(envDir, "AGENT.md"), []byte(doc), 0o644)
 }
 
 // cmdExec targets a sandbox of the current project (same root walk as the

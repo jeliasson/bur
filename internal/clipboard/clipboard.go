@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jeliasson/bur/internal/shim"
 )
 
 // The clipboard bridge lets an agent paste host clipboard content (text
@@ -136,45 +138,10 @@ func firstLine(s string) string {
 // names under bin/, the socket next to env.sh) and serves requests until
 // the process exits.
 func StartBridge(envDir string, run RunFunc) error {
-	if err := installShims(filepath.Join(envDir, "bin")); err != nil {
+	if err := shim.Install(filepath.Join(envDir, "bin"), "wl-paste", "xclip"); err != nil {
 		return err
 	}
 	return serveSocket(filepath.Join(envDir, sockName), run)
-}
-
-// installShims populates bin/ with wl-paste and xclip names that
-// re-exec bur (main dispatches on argv[0]). A nix-installed bur lives in
-// /nix/store, already mounted in the sandbox, so a symlink is enough;
-// other builds are copied in - and had better be static, which
-// CGO_ENABLED=0 dev builds are.
-func installShims(binDir string) error {
-	if err := os.Mkdir(binDir, 0o755); err != nil {
-		return err
-	}
-	self, err := os.Executable()
-	if err == nil {
-		self, err = filepath.EvalSymlinks(self)
-	}
-	if err != nil {
-		return err
-	}
-	target := self
-	if !strings.HasPrefix(self, "/nix/store/") {
-		data, err := os.ReadFile(self)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(binDir, "bur"), data, 0o755); err != nil {
-			return err
-		}
-		target = "bur" // relative link, resolves inside the mount
-	}
-	for _, name := range []string{"wl-paste", "xclip"} {
-		if err := os.Symlink(target, filepath.Join(binDir, name)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func serveSocket(path string, run RunFunc) error {

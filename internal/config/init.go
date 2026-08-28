@@ -53,6 +53,8 @@ clipboard: true                 # read-only paste bridge (text & images)
 # nix:
 #   shell: ./shell.nix          # a nix file, or a flake installable like ".#dev"
 #                               # default: shell.nix, else the flake's default devShell
+#   pkgAdd: true                # let the agent pull extra nixpkgs tools mid-session
+#                               # with "bur-pkg add <name>" (host fetches, gone on exit)
 `
 
 const envTemplate = `# bur sandbox secrets - KEY=VALUE per line, no interpolation, no multiline
