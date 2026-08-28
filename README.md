@@ -165,6 +165,21 @@ No compositor socket enters the container, and the bridge is strictly
 read-only: the agent can paste *from* your clipboard, never write to it.
 Works with `network: none` too; opt out entirely with `clipboard: false`.
 
+When the agent hits a missing tool - say it wants to rasterize an svg and
+the devshell has no imagemagick - it can pull one from nixpkgs mid-session:
+`bur-pkg add imagemagick` inside the sandbox asks the host over a unix
+socket, the host realizes `nixpkgs#imagemagick` with its own nix, and the
+tools land on the sandbox PATH immediately (new store paths appear live
+through the read-only `/nix/store` mount - no restart, no rebuild). No nix
+machinery enters the cage: names are validated attribute paths resolved
+against the **host's** nixpkgs registry, never against anything the agent
+can write to, and the host never runs what it builds. Nothing is installed
+either - the package is realized into the store behind a GC root that dies
+with the sandbox, so the next `nix store gc` sweeps it away. Because the
+host does the fetching, this works under `network: none` too. A short
+`/run/bur/AGENT.md` inside the sandbox tells the agent all of this; opt
+out with `nix.pkgAdd: false`.
+
 ## Config
 
 Global `~/.config/bur/config.yaml`, per-project `.bur.yaml` (found by walking
@@ -208,6 +223,7 @@ hostAccess: true                # adds host.containers.internal
 clipboard: false                # kill the paste bridge, e.g. for sensitive work
 nix:
   shell: ./shell.nix            # a nix file, or a flake installable like ".#dev"
+  pkgAdd: false                 # kill the bur-pkg bridge (default: on)
 ```
 
 `tools:` lists agent companion CLIs (spec tools, `gh`, `rg`, ...) that follow
@@ -295,8 +311,16 @@ What the cage does and doesn't do.
   mid-session and the agent could read it; set `clipboard: false` for
   sensitive work.
 
-Adding a dependency mid-session is deliberate friction: the agent edits
-`shell.nix`, you restart `bur` - environment changes get reviewed like code.
+- `bur-pkg` lets the agent fetch any nixpkgs package via the host - trusted
+  code from your own nixpkgs pin, never evaluated from agent-writable files,
+  and gone after the next GC, but still your disk and bandwidth. Set
+  `nix.pkgAdd: false` to close that valve.
+
+Changing the *environment* mid-session is still deliberate friction: the
+agent edits `shell.nix`, you restart `bur` - devshell changes get reviewed
+like code. `bur-pkg` is the sanctioned exception for grabbing a one-off
+tool, which is why it is limited to bare attribute names from the host's
+own nixpkgs and leaves no trace past the sandbox.
 
 ## Roadmap
 

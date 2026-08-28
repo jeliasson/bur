@@ -22,6 +22,7 @@ type Config struct {
 	HostAccess bool
 	Clipboard  bool
 	NixShell   string
+	NixPkgAdd  bool
 }
 
 func Default() Config {
@@ -31,6 +32,7 @@ func Default() Config {
 		EnvFile:   DefaultEnvFile,
 		Network:   "open",
 		Clipboard: true,
+		NixPkgAdd: true,
 	}
 }
 
@@ -53,7 +55,8 @@ type fileConfig struct {
 	HostAccess *bool             `yaml:"hostAccess"`
 	Clipboard  *bool             `yaml:"clipboard"`
 	Nix        *struct {
-		Shell *string `yaml:"shell"`
+		Shell  *string `yaml:"shell"`
+		PkgAdd *bool   `yaml:"pkgAdd"`
 	} `yaml:"nix"`
 }
 
@@ -63,7 +66,7 @@ var knownTopKeys = map[string]bool{
 	"nix": true,
 }
 
-var knownNixKeys = map[string]bool{"shell": true}
+var knownNixKeys = map[string]bool{"shell": true, "pkgAdd": true}
 
 func loadFile(path string) (*fileConfig, []string, error) {
 	data, err := os.ReadFile(path)
@@ -191,6 +194,9 @@ func (cfg *Config) apply(fc *fileConfig) {
 	}
 	if fc.Nix != nil && fc.Nix.Shell != nil {
 		cfg.NixShell = *fc.Nix.Shell
+	}
+	if fc.Nix != nil && fc.Nix.PkgAdd != nil {
+		cfg.NixPkgAdd = *fc.Nix.PkgAdd
 	}
 }
 
