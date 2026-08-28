@@ -1,8 +1,12 @@
-name: Pipeline 
+name: Pipeline
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - chore/**
+      - feature/**
+      - fix/**
 
 jobs:
   go:
