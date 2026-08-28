@@ -69,7 +69,7 @@ let
 in
 buildGoModule rec {
   pname = "bur";
-  version = "0.1.0";
+  version = "0.2.0";
 
   src = lib.cleanSource ./.;
   vendorHash = "sha256-g+yaVIx4jxpAQ/+WrGKxhVeliYx7nLQe/zsGpxV4Fn4=";
