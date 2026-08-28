@@ -103,6 +103,7 @@ a build flavor.
 | `bur exec bash`| second process inside a running sandbox of this project         |
 | `bur ls`       | list running sandboxes                                          |
 | `bur clean`    | remove every bur container and stale devshell GC roots (asks first; `-f` skips) |
+| `bur init`     | write a starter `.bur.yaml` and a gitignored `.bur.env` for secrets - only what is missing |
 
 Sandboxes are one-shot: every `bur` starts a fresh container (named
 `bur-<project>-<adjective>-<animal>`) that lives exactly as long as its main
@@ -168,7 +169,9 @@ Works with `network: none` too; opt out entirely with `clipboard: false`.
 
 Global `~/.config/bur/config.yaml`, per-project `.bur.yaml` (found by walking
 up to the nearest `.bur.yaml` or `.git`). Both files are optional. Scalars
-override, lists concatenate, `env` merges.
+override, lists concatenate, `env` merges. `bur init` writes a commented
+starter `.bur.yaml` in the current directory, plus a gitignored `.bur.env`
+for secrets; it only creates what is missing, so it is safe to re-run.
 
 Without any config, bur behaves as if you had written:
 
@@ -198,6 +201,8 @@ mounts:
   - "~/fixtures:/fixtures:ro"
 env:
   TARS_HONESTY_LEVEL: "0.9"
+envFile: .env                   # where secrets live, relative to this file
+                                # (default: .bur.env; "" reads none)
 network: none                   # open | none  ("filtered" reserved for v2)
 hostAccess: true                # adds host.containers.internal
 clipboard: false                # kill the paste bridge, e.g. for sensitive work
@@ -213,6 +218,38 @@ store package and that package's `bin/` is appended to the container PATH -
 after the devshell, so a project-pinned version of the same tool wins.
 Like the main command (and unlike the devshell profile), these store paths
 are not GC-rooted.
+
+### Secrets
+
+`.bur.yaml` is meant to be committed, so an API key does not belong in its
+`env:` block - and gitignoring the file itself would take the whole project
+config with it. Keep secrets in `.bur.env` next to it instead. `bur init`
+scaffolds and gitignores it alongside the config (and creates just the
+missing one in a fresh clone); a project without secrets can simply delete
+it - a missing `.bur.env` is fine.
+
+The format is `KEY=VALUE` per line, `#` for comments, one optional layer of
+quotes stripped, no interpolation and no multiline values. bur loads it from
+the project root on top of `env:`, so a key set in both wins here. Values
+reach the sandbox through a mode-0600 file podman reads, never as command
+line arguments - the `podman run` process lives as long as the sandbox and
+its `/proc` entry is world-readable.
+
+`.bur.env` is only the default name. A project that already keeps its
+secrets somewhere points `envFile:` at it, and `bur init` then scaffolds
+and gitignores that file instead:
+
+```yaml
+envFile: .env       # relative to .bur.yaml; ~ and absolute paths work too,
+                    # for one secrets file shared across projects.
+                    # "" reads no env file at all.
+```
+
+A `~` or absolute path (or `""`) makes `bur init` skip the secrets file
+entirely - a file shared across projects is yours to create and protect.
+
+A configured file that does not exist is a warning on startup, while a
+missing `.bur.env` is silent - not having one is the normal case.
 
 ## Security model
 
@@ -246,7 +283,8 @@ What the cage does and doesn't do.
   devshell (`shell.nix` / flake) is evaluated and built on the host when
   `bur` starts. Review both before the first run in an untrusted checkout.
 - `~/.claude` is mounted rw - the agent can edit its own global settings.
-- Secrets you pass via `env` + open egress = an exfiltration channel. Use
+- Secrets you pass via `env` or `.bur.env` + open egress = an exfiltration
+  channel. Keeping them out of git does not keep them out of the cage. Use
   `network: none` for sensitive work; a deny-by-default egress allowlist
   (`network: filtered`) is the planned v2 flagship.
 - Host services bound to `127.0.0.1` are unreachable even with `hostAccess`

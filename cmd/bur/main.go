@@ -31,15 +31,16 @@ Usage:
   bur exec [--in <name>] <cmd> ...
                    run a command in a running sandbox of this project
   bur ls           list running sandboxes
+  bur init [-f]    write a starter .bur.yaml and a gitignored .bur.env for
+                   secrets - only what is missing (-f skips the prompt)
   bur clean [-f]   remove all bur containers and stale devshell gc roots (asks first)
   bur --version    print the bur version
 
 A sandbox lives exactly as long as its command: exit the agent and the
 container is gone. Run as many per project as you like.
 
-Config: ~/.config/bur/config.yaml (global), .bur.yaml (project).
-Keys: cmd, tools, mounts, ports, env, network (open|none), hostAccess,
-      clipboard, nix.shell`
+Config: ~/.config/bur/config.yaml (global), .bur.yaml (project),
+        .bur.env (project secrets, uncommitted; rename it with envFile:).`
 
 func main() {
 	clipboard.Version = version
@@ -75,13 +76,18 @@ func main() {
 }
 
 func run(args []string) error {
-	if _, err := exec.LookPath("podman"); err != nil {
-		return fmt.Errorf("podman not found in PATH (bur runs everything in rootless podman; see https://podman.io/docs/installation)")
-	}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
+	}
+
+	// Scaffolding writes files on the host; no container, so no podman.
+	if len(args) > 0 && args[0] == "init" {
+		return cmdInit(cwd, args[1:])
+	}
+
+	if _, err := exec.LookPath("podman"); err != nil {
+		return fmt.Errorf("podman not found in PATH (bur runs everything in rootless podman; see https://podman.io/docs/installation)")
 	}
 
 	if len(args) > 0 {
@@ -198,6 +204,21 @@ func run(args []string) error {
 		return err
 	}
 	return sandbox.RunPodman(runArgs, sandbox.AgentHint(argv))
+}
+
+// cmdInit scaffolds the missing project files in the current directory;
+// -f skips the repo-root prompt.
+func cmdInit(cwd string, args []string) error {
+	force := false
+	for _, a := range args {
+		switch a {
+		case "-f", "--force":
+			force = true
+		default:
+			return fmt.Errorf("usage: bur init [-f]")
+		}
+	}
+	return config.Init(cwd, force)
 }
 
 // cmdClean sweeps both kinds of leftovers: orphaned containers (sandbox
