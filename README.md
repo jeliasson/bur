@@ -86,7 +86,8 @@ make build   # or: go build ./cmd/bur
 ```
 
 A source build does not embed the `bur-base` image; point `BUR_BASE_IMAGE`
-at any image that provides bash and CA certificates. Note that bur still
+at any image that provides bash and CA certificates. `nix develop` sets it
+to the flake's own image, which `make base-image` loads. Note that bur still
 needs nix on the host at runtime - the project devshell is the container
 environment, and commands are resolved through `/nix/store`. Making bur
 useful without nix would be a new environment backend (see Roadmap), not

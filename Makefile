@@ -7,7 +7,7 @@ ARGS    ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build run test vet fmt tidy clean nix-build
+.PHONY: help build run test vet fmt tidy clean base-image nix-build
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## /{printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -32,6 +32,9 @@ tidy: ## Tidy go.mod and go.sum
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY)
+
+base-image: ## Build the bur-base image and load it into podman
+	podman load -i $$(nix build --no-link --print-out-paths '.#bur.baseImage')
 
 nix-build: ## Build the release package via the flake
 	nix build
