@@ -12,17 +12,20 @@ import (
 )
 
 type Config struct {
-	Cmd        []string
-	Tools      []string
-	Mounts     []string
-	Ports      []string
-	Env        map[string]string
-	EnvFile    string
-	Network    string
-	HostAccess bool
-	Clipboard  bool
-	NixShell   string
-	NixPkgAdd  bool
+	Cmd           []string
+	Tools         []string
+	Mounts        []string
+	Ports         []string
+	Env           map[string]string
+	EnvFile       string
+	Network       string
+	HostAccess    bool
+	Clipboard     bool
+	NixShell      string
+	NixPkgAdd     bool
+	GitName       string
+	GitEmail      string
+	GitSigningKey string
 }
 
 func Default() Config {
@@ -33,6 +36,10 @@ func Default() Config {
 		Network:   "open",
 		Clipboard: true,
 		NixPkgAdd: true,
+		// Neutral identity: agent commits are visibly agent commits until
+		// the user opts in to their own name in the global config.
+		GitName:  "bur",
+		GitEmail: "bur@noreply.local",
 	}
 }
 
@@ -58,15 +65,23 @@ type fileConfig struct {
 		Shell  *string `yaml:"shell"`
 		PkgAdd *bool   `yaml:"pkgAdd"`
 	} `yaml:"nix"`
+	Git *struct {
+		Name       *string `yaml:"name"`
+		Email      *string `yaml:"email"`
+		SigningKey *string `yaml:"signingKey"`
+	} `yaml:"git"`
 }
 
 var knownTopKeys = map[string]bool{
 	"cmd": true, "tools": true, "mounts": true, "ports": true, "env": true,
 	"envFile": true, "network": true, "hostAccess": true, "clipboard": true,
-	"nix": true,
+	"nix": true, "git": true,
 }
 
-var knownNixKeys = map[string]bool{"shell": true, "pkgAdd": true}
+var knownNestedKeys = map[string]map[string]bool{
+	"nix": {"shell": true, "pkgAdd": true},
+	"git": {"name": true, "email": true, "signingKey": true},
+}
 
 func loadFile(path string) (*fileConfig, []string, error) {
 	data, err := os.ReadFile(path)
@@ -88,11 +103,11 @@ func loadFile(path string) (*fileConfig, []string, error) {
 			warnings = append(warnings, fmt.Sprintf("%s: unknown key %q", path, k))
 			continue
 		}
-		if k == "nix" {
+		if known := knownNestedKeys[k]; known != nil {
 			if nested, ok := v.(map[string]any); ok {
 				for nk := range nested {
-					if !knownNixKeys[nk] {
-						warnings = append(warnings, fmt.Sprintf("%s: unknown key %q", path, "nix."+nk))
+					if !known[nk] {
+						warnings = append(warnings, fmt.Sprintf("%s: unknown key %q", path, k+"."+nk))
 					}
 				}
 			}
@@ -198,6 +213,15 @@ func (cfg *Config) apply(fc *fileConfig) {
 	if fc.Nix != nil && fc.Nix.PkgAdd != nil {
 		cfg.NixPkgAdd = *fc.Nix.PkgAdd
 	}
+	if fc.Git != nil && fc.Git.Name != nil {
+		cfg.GitName = *fc.Git.Name
+	}
+	if fc.Git != nil && fc.Git.Email != nil {
+		cfg.GitEmail = *fc.Git.Email
+	}
+	if fc.Git != nil && fc.Git.SigningKey != nil {
+		cfg.GitSigningKey = *fc.Git.SigningKey
+	}
 }
 
 func (cfg *Config) validate() error {
@@ -207,6 +231,16 @@ func (cfg *Config) validate() error {
 		return fmt.Errorf("network: filtered egress is not yet supported (use \"open\" or \"none\")")
 	default:
 		return fmt.Errorf("network: unknown value %q (use \"open\" or \"none\")", cfg.Network)
+	}
+	// These land in a generated gitconfig; a newline would smuggle in
+	// arbitrary extra directives.
+	for what, v := range map[string]string{"git.name": cfg.GitName, "git.email": cfg.GitEmail} {
+		if v == "" {
+			return fmt.Errorf("%s: must not be empty", what)
+		}
+		if strings.ContainsRune(v, '\n') {
+			return fmt.Errorf("%s: must not contain newlines", what)
+		}
 	}
 	return nil
 }

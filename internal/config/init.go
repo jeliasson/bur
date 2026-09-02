@@ -55,6 +55,18 @@ clipboard: true                 # read-only paste bridge (text & images)
 #                               # default: shell.nix, else the flake's default devShell
 #   pkgAdd: true                # let the agent pull extra nixpkgs tools mid-session
 #                               # with "bur-pkg add <name>" (host fetches, gone on exit)
+
+# git:                          # identity for commits made inside the sandbox
+#                               # (bur generates the gitconfig; the host's is never
+#                               # mounted). Set your name globally, override here.
+#   name: bur
+#   email: bur@noreply.local
+#   signingKey: ~/.config/bur/signing_key
+#                               # optional SSH key for signing commits. Use a
+#                               # dedicated passphrase-less key uploaded to GitHub
+#                               # as a *signing* key (it cannot authenticate), and
+#                               # know the agent can read it: leaked, it signs as
+#                               # you until revoked. ssh-keygen -t ed25519 -N ""
 `
 
 const envTemplate = `# bur sandbox secrets - KEY=VALUE per line, no interpolation, no multiline

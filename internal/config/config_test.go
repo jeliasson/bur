@@ -83,18 +83,60 @@ nix:
 }
 
 func TestUnknownKeyWarning(t *testing.T) {
-	_, w, err := loadFile(writeTemp(t, ".bur.yaml", "portss: [8000]\nnix:\n  shells: x\n"))
+	_, w, err := loadFile(writeTemp(t, ".bur.yaml", "portss: [8000]\nnix:\n  shells: x\ngit:\n  username: x\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(w) != 2 {
-		t.Fatalf("want 2 warnings, got %v", w)
+	if len(w) != 3 {
+		t.Fatalf("want 3 warnings, got %v", w)
 	}
-	if !strings.Contains(w[0], "portss") && !strings.Contains(w[1], "portss") {
-		t.Errorf("missing portss warning: %v", w)
+	all := strings.Join(w, " ")
+	for _, want := range []string{"portss", "nix.shells", "git.username"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("missing %s warning: %v", want, w)
+		}
 	}
-	if !strings.Contains(strings.Join(w, " "), "nix.shells") {
-		t.Errorf("missing nix.shells warning: %v", w)
+}
+
+func TestGitIdentityMerge(t *testing.T) {
+	cfg := Default()
+	if cfg.GitName != "bur" || cfg.GitEmail != "bur@noreply.local" || cfg.GitSigningKey != "" {
+		t.Fatalf("git defaults wrong: %+v", cfg)
+	}
+
+	gfc, _, err := loadFile(writeTemp(t, "config.yaml", "git:\n  name: Johan\n  email: johan@example.com\n  signingKey: ~/.config/bur/signing_key\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.apply(gfc)
+
+	pfc, _, err := loadFile(writeTemp(t, ".bur.yaml", "git:\n  email: johan@work.example\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.apply(pfc)
+
+	if cfg.GitName != "Johan" {
+		t.Errorf("global name not kept: %q", cfg.GitName)
+	}
+	if cfg.GitEmail != "johan@work.example" {
+		t.Errorf("project email not overriding: %q", cfg.GitEmail)
+	}
+	if cfg.GitSigningKey != "~/.config/bur/signing_key" {
+		t.Errorf("signing key not kept: %q", cfg.GitSigningKey)
+	}
+}
+
+func TestValidateGitIdentity(t *testing.T) {
+	cfg := Default()
+	cfg.GitName = "a\nb"
+	if err := cfg.validate(); err == nil || !strings.Contains(err.Error(), "git.name") {
+		t.Errorf("newline in git.name should error, got %v", err)
+	}
+	cfg = Default()
+	cfg.GitEmail = ""
+	if err := cfg.validate(); err == nil || !strings.Contains(err.Error(), "git.email") {
+		t.Errorf("empty git.email should error, got %v", err)
 	}
 }
 

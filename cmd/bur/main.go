@@ -34,6 +34,8 @@ Usage:
   bur ls           list running sandboxes
   bur init [-f]    write a starter .bur.yaml and a gitignored .bur.env for
                    secrets - only what is missing (-f skips the prompt)
+  bur init --git   set up the global git identity for sandbox commits, with
+                   an optional dedicated SSH signing key
   bur clean [-f]   remove all bur containers and stale devshell gc roots (asks first)
   bur --version    print the bur version
 
@@ -226,16 +228,21 @@ func run(args []string) error {
 }
 
 // cmdInit scaffolds the missing project files in the current directory;
-// -f skips the repo-root prompt.
+// --git instead sets up the global git identity, -f skips the prompts.
 func cmdInit(cwd string, args []string) error {
-	force := false
+	force, git := false, false
 	for _, a := range args {
 		switch a {
 		case "-f", "--force":
 			force = true
+		case "--git":
+			git = true
 		default:
-			return fmt.Errorf("usage: bur init [-f]")
+			return fmt.Errorf("usage: bur init [--git] [-f]")
 		}
+	}
+	if git {
+		return config.InitGit(force)
 	}
 	return config.Init(cwd, force)
 }
