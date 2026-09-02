@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -113,4 +114,24 @@ func TestContainerNameShape(t *testing.T) {
 	if len(parts) != 4 || parts[0] != "bur" || parts[1] != "nix" {
 		t.Fatalf("unexpected name shape: %q", name)
 	}
+}
+
+func TestBuildRunArgsHomeTmpfsOwned(t *testing.T) {
+	spec := RunSpec{
+		Name:    "bur-test-witty-yak",
+		Root:    t.TempDir(),
+		Workdir: "/tmp",
+		Cfg:     config.Config{Cmd: []string{"bash"}, Network: "open"},
+	}
+	args, err := BuildRunArgs(spec, []string{"bash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("%s:rw,exec,uid=%d,gid=%d", containerHome, os.Getuid(), os.Getgid())
+	for i, a := range args {
+		if a == "--tmpfs" && args[i+1] == want {
+			return
+		}
+	}
+	t.Errorf("home tmpfs not owned by the keep-id user: %v", args)
 }
