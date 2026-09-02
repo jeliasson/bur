@@ -34,6 +34,7 @@ const containerHome = "/home/bur"
 const entryScript = `
 if [ -f /run/bur/env.sh ]; then . /run/bur/env.sh; fi
 export HOME=` + containerHome + ` TMPDIR=/tmp TMP=/tmp TEMP=/tmp TEMPDIR=/tmp
+if [ -f ` + gitConfigPath + ` ]; then export GIT_CONFIG_GLOBAL=` + gitConfigPath + `; fi
 export PATH="$PATH:/bin${BUR_TOOLS_PATH:+:$BUR_TOOLS_PATH}"
 if [ -d /run/bur/bin ]; then export PATH="/run/bur/bin:$PATH"; fi
 cd "${BUR_WORKDIR:-$HOME}"
@@ -230,6 +231,22 @@ func BuildRunArgs(s RunSpec, argv []string) ([]string, error) {
 	}
 	if s.EnvDir != "" {
 		args = append(args, "-v", s.EnvDir+":/run/bur:ro")
+		if err := writeGitConfig(s.EnvDir, s.Cfg); err != nil {
+			return nil, err
+		}
+		if s.Cfg.GitSigningKey != "" {
+			src, err := hostPath(s.Cfg.GitSigningKey)
+			if err != nil {
+				return nil, fmt.Errorf("git signingKey %q: %w (generate a dedicated one: ssh-keygen -t ed25519 -N \"\" -f %s, then upload the .pub to GitHub as a signing key)",
+					s.Cfg.GitSigningKey, err, s.Cfg.GitSigningKey)
+			}
+			// Pre-create the mount point: /run/bur is bind-mounted read-only,
+			// so podman cannot create it inside the mount itself.
+			if err := os.WriteFile(filepath.Join(s.EnvDir, "signing_key"), nil, 0o600); err != nil {
+				return nil, err
+			}
+			args = append(args, "-v", src+":"+signingKeyPath+":ro")
+		}
 	}
 	if dirs := resolveToolDirs(s.Cfg.Tools); len(dirs) > 0 {
 		args = append(args, "-e", "BUR_TOOLS_PATH="+strings.Join(dirs, ":"))

@@ -224,6 +224,10 @@ clipboard: false                # kill the paste bridge, e.g. for sensitive work
 nix:
   shell: ./shell.nix            # a nix file, or a flake installable like ".#dev"
   pkgAdd: false                 # kill the bur-pkg bridge (default: on)
+git:                            # identity for commits made inside the sandbox
+  name: Johan Eliasson          # default: bur
+  email: johan@example.com      # default: bur@noreply.local
+  signingKey: ~/.config/bur/signing_key   # optional, enables SSH commit signing
 ```
 
 `tools:` lists agent companion CLIs (spec tools, `gh`, `rg`, ...) that follow
@@ -234,6 +238,32 @@ store package and that package's `bin/` is appended to the container PATH -
 after the devshell, so a project-pinned version of the same tool wins.
 Like the main command (and unlike the devshell profile), these store paths
 are not GC-rooted.
+
+### Git identity
+
+The host's git config is never mounted. bur generates a read-only gitconfig
+at `/run/bur/gitconfig` (wired up via `GIT_CONFIG_GLOBAL`) with the
+configured identity, `init.defaultBranch main`, no credential helper, and
+signing off. The default identity is a neutral `bur <bur@noreply.local>`,
+so agent commits are visibly agent commits until you put your own name in
+the global config; a project's `.bur.yaml` can override either field.
+`bur init --git` sets this up once: it offers to copy your host git
+identity into the global config and to generate the signing key below.
+
+`signingKey:` opts in to SSH commit signing. The key is bind-mounted
+read-only and must be passphrase-less - there is nobody in the sandbox to
+type one. Use a dedicated key, not your auth key: generate it with
+`ssh-keygen -t ed25519 -N "" -f ~/.config/bur/signing_key` and upload the
+`.pub` to GitHub as a **signing** key, which cannot authenticate. Know the
+trade: the agent can read the key, and with `network: open` a hostile one
+could exfiltrate it and sign commits as you until you revoke it - a bounded
+risk, but a real one. Signing also needs `ssh-keygen` inside the sandbox,
+so keep openssh in the devshell (or `bur-pkg add openssh`).
+
+The key lives under `~/.config/bur/`, and unlike `~/.ssh/`, that is a
+directory dotfile managers and backups happily sweep up - exclude the key
+there, or it may end up in a dotfiles repo. `bur init --git` keeps the
+directory at 0700 as a backstop.
 
 ### Secrets
 
