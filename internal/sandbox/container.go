@@ -219,7 +219,7 @@ func BuildRunArgs(s RunSpec, argv []string) ([]string, error) {
 		"--userns=keep-id",
 		"-v", s.Root + ":" + s.Root,
 		"-v", "/nix/store:/nix/store:ro",
-		"--tmpfs", fmt.Sprintf("%s:rw,exec,uid=%d,gid=%d", containerHome, os.Getuid(), os.Getgid()),
+		"--tmpfs", containerHome + ":rw,exec,mode=1777",
 		"-e", "HOME=" + containerHome,
 		"-e", "BUR_WORKDIR=" + s.Workdir,
 	}
