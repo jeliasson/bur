@@ -59,7 +59,7 @@ func initGit(burDir string, ask func(string) bool, ident func() (string, string)
 		}
 		signing = true
 		fmt.Println("- Wrote", keyPath, "- upload the .pub to GitHub as a *signing* key:")
-		fmt.Println("    gh ssh-key add --type signing --title \"bur signing key\"", keyPath+".pub")
+		fmt.Println("    gh ssh-key add --type signing --title", strconv.Quote(keyComment()), keyPath+".pub")
 		fmt.Println("  or paste it at https://github.com/settings/ssh/new (key type: Signing Key)")
 	}
 
@@ -117,8 +117,17 @@ func hostGitIdentity() (string, string) {
 	return get("user.name"), get("user.email")
 }
 
+// keyComment follows the user@host convention so the key is attributable
+// to the machine it was generated on.
+func keyComment() string {
+	if hn, err := os.Hostname(); err == nil && hn != "" {
+		return "bur@" + hn
+	}
+	return "bur"
+}
+
 func sshKeygen(path string) error {
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-N", "", "-C", "bur signing key", "-q", "-f", path)
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-N", "", "-C", keyComment(), "-q", "-f", path)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
