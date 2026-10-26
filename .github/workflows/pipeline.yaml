@@ -8,6 +8,9 @@ on:
       - feature/**
       - fix/**
 
+permissions:
+  contents: read
+
 jobs:
   go:
     runs-on: ubuntu-latest
