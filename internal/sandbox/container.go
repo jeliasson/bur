@@ -1,5 +1,6 @@
 // Package sandbox owns everything podman: naming and starting one-shot
-// containers, exec-ing into them, and listing or cleaning them up.
+// containers, exec-ing into them, and listing or cleaning them up. It
+// also renders the gitconfig the sandbox commits under.
 package sandbox
 
 import (
@@ -85,8 +86,8 @@ func ContainerName(root string) string {
 
 func EnsureBaseImage() error {
 	if BaseImageRef == "" {
-		if os.Getenv("BUR_BASE_IMAGE") != "" {
-			BaseImageRef = os.Getenv("BUR_BASE_IMAGE")
+		if ref := os.Getenv("BUR_BASE_IMAGE"); ref != "" {
+			BaseImageRef = ref
 			return nil
 		}
 		return fmt.Errorf("no base image embedded in this build (set BUR_BASE_IMAGE for dev builds)")
@@ -200,13 +201,12 @@ func parseMount(spec string) (string, error) {
 }
 
 type RunSpec struct {
-	Name     string
-	Root     string
-	Workdir  string
-	EnvDir   string
-	Cfg      config.Config
-	Ports    []ports.Mapping
-	HasShell bool
+	Name    string
+	Root    string
+	Workdir string
+	EnvDir  string
+	Cfg     config.Config
+	Ports   []ports.Mapping
 }
 
 func BuildRunArgs(s RunSpec, argv []string) ([]string, error) {

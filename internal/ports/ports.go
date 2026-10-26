@@ -18,6 +18,8 @@ type Mapping struct {
 	HostIP    string
 	Host      int
 	Container int
+	// The host port the spec asked for; Host differs when it was taken.
+	Requested int
 }
 
 // BindIP is the interface a port publishes on: the spec's explicit host IP,
@@ -89,7 +91,7 @@ func Allocate(specs []string) ([]Mapping, error) {
 		if err != nil {
 			return nil, err
 		}
-		m := Mapping{HostIP: hostIP, Container: container}
+		m := Mapping{HostIP: hostIP, Container: container, Requested: host}
 		p := host
 		for ; p <= 65535; p++ {
 			if !used[p] && portFree(m.BindIP(), p) {

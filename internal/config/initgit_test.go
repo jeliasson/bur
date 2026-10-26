@@ -11,7 +11,7 @@ func TestInitGitFresh(t *testing.T) {
 	dir := t.TempDir()
 	keygenPath := ""
 	err := initGit(dir,
-		func(string) bool { return true },
+		yes,
 		func() (string, string) { return "Johan", "johan@example.com" },
 		func(path string) error { keygenPath = path; return os.WriteFile(path, []byte("key"), 0o600) })
 	if err != nil {
@@ -47,7 +47,7 @@ func TestInitGitFresh(t *testing.T) {
 func TestInitGitCreatesMissingDirPrivate(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "bur")
 	err := initGit(dir,
-		func(string) bool { return true },
+		yes,
 		func() (string, string) { return "Johan", "johan@example.com" },
 		func(path string) error { return os.WriteFile(path, []byte("key"), 0o600) })
 	if err != nil {
@@ -68,7 +68,7 @@ func TestInitGitTightensDirWithKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := initGit(dir,
-		func(string) bool { return true },
+		yes,
 		func() (string, string) { return "", "" },
 		func(path string) error { return os.WriteFile(path, []byte("key"), 0o600) })
 	if err != nil {
@@ -86,7 +86,7 @@ func TestInitGitTightensDirWithKey(t *testing.T) {
 func TestInitGitDeclinedKeepsNeutralDefault(t *testing.T) {
 	dir := t.TempDir()
 	err := initGit(dir,
-		func(string) bool { return false },
+		no,
 		func() (string, string) { return "Johan", "johan@example.com" },
 		func(string) error { t.Error("keygen must not run when declined"); return nil })
 	if err != nil {
@@ -104,7 +104,6 @@ func TestInitGitAppendsAndLeavesExistingBlock(t *testing.T) {
 	if err := os.WriteFile(path, []byte("network: none\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	yes := func(string) bool { return true }
 	ident := func() (string, string) { return "Johan", "johan@example.com" }
 	nokey := func(string) error { return nil }
 
@@ -132,7 +131,7 @@ func TestInitGitExistingKeyEnablesSigning(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := initGit(dir,
-		func(string) bool { return true },
+		yes,
 		func() (string, string) { return "", "" },
 		func(string) error { t.Error("keygen must not run for an existing key"); return nil })
 	if err != nil {

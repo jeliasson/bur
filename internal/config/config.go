@@ -1,5 +1,6 @@
 // Package config loads and merges bur configuration from the global
-// config file and the project's .bur.yaml, and locates the project root.
+// config file and the project's .bur.yaml, locates the project root, and
+// scaffolds both files for `bur init`.
 package config
 
 import (
@@ -207,20 +208,24 @@ func (cfg *Config) apply(fc *fileConfig) {
 	if fc.Clipboard != nil {
 		cfg.Clipboard = *fc.Clipboard
 	}
-	if fc.Nix != nil && fc.Nix.Shell != nil {
-		cfg.NixShell = *fc.Nix.Shell
+	if fc.Nix != nil {
+		if fc.Nix.Shell != nil {
+			cfg.NixShell = *fc.Nix.Shell
+		}
+		if fc.Nix.PkgAdd != nil {
+			cfg.NixPkgAdd = *fc.Nix.PkgAdd
+		}
 	}
-	if fc.Nix != nil && fc.Nix.PkgAdd != nil {
-		cfg.NixPkgAdd = *fc.Nix.PkgAdd
-	}
-	if fc.Git != nil && fc.Git.Name != nil {
-		cfg.GitName = *fc.Git.Name
-	}
-	if fc.Git != nil && fc.Git.Email != nil {
-		cfg.GitEmail = *fc.Git.Email
-	}
-	if fc.Git != nil && fc.Git.SigningKey != nil {
-		cfg.GitSigningKey = *fc.Git.SigningKey
+	if fc.Git != nil {
+		if fc.Git.Name != nil {
+			cfg.GitName = *fc.Git.Name
+		}
+		if fc.Git.Email != nil {
+			cfg.GitEmail = *fc.Git.Email
+		}
+		if fc.Git.SigningKey != nil {
+			cfg.GitSigningKey = *fc.Git.SigningKey
+		}
 	}
 }
 
