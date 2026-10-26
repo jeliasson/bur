@@ -119,7 +119,6 @@ func run(args []string) error {
 		return err
 	}
 	fmt.Fprintln(os.Stderr, "bur: project", sandbox.AbbrevHome(root))
-	name := sandbox.ContainerName(root)
 
 	argv := cfg.Cmd
 	if len(args) > 0 {
@@ -138,19 +137,52 @@ func run(args []string) error {
 	}
 	defer os.RemoveAll(envDir)
 
-	ref := nixenv.Resolve(root, cfg.NixShell)
-	if ref != (nixenv.Ref{}) {
-		script, err := nixenv.BuildEnv(ref, root)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(envDir, "env.sh"), script, 0o644); err != nil {
-			return err
-		}
-	} else {
-		fmt.Fprintln(os.Stderr, "bur: note: no shell.nix or flake.nix found, starting with a minimal environment")
+	if err := writeDevshellEnv(envDir, root, cfg.NixShell); err != nil {
+		return err
+	}
+	pkgAdd := startBridges(envDir, &cfg)
+	if err := writeAgentMD(envDir, pkgAdd); err != nil {
+		fmt.Fprintln(os.Stderr, "bur: warning: writing AGENT.md:", err)
 	}
 
+	portMaps, err := publishPorts(cfg)
+	if err != nil {
+		return err
+	}
+
+	runArgs, err := sandbox.BuildRunArgs(sandbox.RunSpec{
+		Name:    sandbox.ContainerName(root),
+		Root:    root,
+		Workdir: cwd,
+		EnvDir:  envDir,
+		Cfg:     cfg,
+		Ports:   portMaps,
+	}, argv)
+	if err != nil {
+		return err
+	}
+	return sandbox.RunPodman(runArgs, sandbox.AgentHint(argv))
+}
+
+// writeDevshellEnv builds the project's nix devshell into envDir/env.sh,
+// which the container entry script sources.
+func writeDevshellEnv(envDir, root, nixShell string) error {
+	ref := nixenv.Resolve(root, nixShell)
+	if ref == (nixenv.Ref{}) {
+		fmt.Fprintln(os.Stderr, "bur: note: no shell.nix or flake.nix found, starting with a minimal environment")
+		return nil
+	}
+	script, err := nixenv.BuildEnv(ref, root)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(envDir, "env.sh"), script, 0o644)
+}
+
+// startBridges brings up the clipboard and package bridges in envDir. A
+// bridge that cannot start is a warning, not an error - the sandbox is
+// still usable without it. Reports whether bur-pkg ended up available.
+func startBridges(envDir string, cfg *config.Config) bool {
 	if cfg.Clipboard {
 		if backend, note := clipboard.DetectBackend(); backend != nil {
 			if err := clipboard.StartBridge(envDir, backend.Run); err != nil {
@@ -172,59 +204,48 @@ func run(args []string) error {
 		}
 	}
 
-	pkgAdd := false
-	if cfg.NixPkgAdd {
-		if _, err := exec.LookPath("nix"); err != nil {
-			fmt.Fprintln(os.Stderr, "bur: note: bur-pkg disabled: nix not found on host PATH")
-		} else if err := pkgbridge.StartBridge(envDir); err != nil {
-			fmt.Fprintln(os.Stderr, "bur: warning: package bridge failed to start:", err)
-		} else {
-			pkgAdd = true
-		}
+	if !cfg.NixPkgAdd {
+		return false
 	}
-	if err := writeAgentMD(envDir, pkgAdd); err != nil {
-		fmt.Fprintln(os.Stderr, "bur: warning: writing AGENT.md:", err)
+	if _, err := exec.LookPath("nix"); err != nil {
+		fmt.Fprintln(os.Stderr, "bur: note: bur-pkg disabled: nix not found on host PATH")
+		return false
 	}
+	if err := pkgbridge.StartBridge(envDir); err != nil {
+		fmt.Fprintln(os.Stderr, "bur: warning: package bridge failed to start:", err)
+		return false
+	}
+	return true
+}
 
-	var portMaps []ports.Mapping
+// publishPorts allocates the configured ports on the host and reports
+// where each one landed. Nothing is published with network: none.
+func publishPorts(cfg config.Config) ([]ports.Mapping, error) {
 	if cfg.Network == "none" {
 		if len(cfg.Ports) > 0 {
 			fmt.Fprintln(os.Stderr, "bur: warning: network is \"none\", configured ports will not be published")
 		}
-	} else {
-		portMaps, err = ports.Allocate(cfg.Ports)
-		if err != nil {
-			return err
-		}
-		for i, p := range portMaps {
-			_, host, _, _ := ports.ParseSpec(cfg.Ports[i])
-			where := p.BindIP()
-			if where == ports.DefaultPublishIP {
-				where = "localhost"
-			}
-			if p.Host != host {
-				fmt.Fprintf(os.Stderr, "bur: port %d taken, using %s:%d -> %d\n", host, where, p.Host, p.Container)
-			} else {
-				fmt.Fprintf(os.Stderr, "bur: %s:%d -> %d\n", where, p.Host, p.Container)
-			}
-			if p.BindIP() != ports.DefaultPublishIP {
-				fmt.Fprintf(os.Stderr, "bur: warning: port %d is published on %s - reachable beyond localhost\n", p.Host, p.BindIP())
-			}
-		}
+		return nil, nil
 	}
-
-	runArgs, err := sandbox.BuildRunArgs(sandbox.RunSpec{
-		Name:    name,
-		Root:    root,
-		Workdir: cwd,
-		EnvDir:  envDir,
-		Cfg:     cfg,
-		Ports:   portMaps,
-	}, argv)
+	portMaps, err := ports.Allocate(cfg.Ports)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return sandbox.RunPodman(runArgs, sandbox.AgentHint(argv))
+	for _, p := range portMaps {
+		where := p.BindIP()
+		if where == ports.DefaultPublishIP {
+			where = "localhost"
+		}
+		if p.Host != p.Requested {
+			fmt.Fprintf(os.Stderr, "bur: port %d taken, using %s:%d -> %d\n", p.Requested, where, p.Host, p.Container)
+		} else {
+			fmt.Fprintf(os.Stderr, "bur: %s:%d -> %d\n", where, p.Host, p.Container)
+		}
+		if p.BindIP() != ports.DefaultPublishIP {
+			fmt.Fprintf(os.Stderr, "bur: warning: port %d is published on %s - reachable beyond localhost\n", p.Host, p.BindIP())
+		}
+	}
+	return portMaps, nil
 }
 
 // cmdInit scaffolds the missing project files in the current directory;

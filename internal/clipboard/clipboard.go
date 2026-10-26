@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jeliasson/bur/internal/bridge"
 	"github.com/jeliasson/bur/internal/shim"
 )
 
@@ -145,25 +146,7 @@ func StartBridge(envDir string, run RunFunc) error {
 }
 
 func serveSocket(path string, run RunFunc) error {
-	ln, err := net.Listen("unix", path)
-	if err != nil {
-		return err
-	}
-	// keep-id maps the sandbox to the same uid, so owner-only suffices.
-	if err := os.Chmod(path, 0o600); err != nil {
-		ln.Close()
-		return err
-	}
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go serveConn(conn, run)
-		}
-	}()
-	return nil
+	return bridge.Listen(path, func(conn net.Conn) { serveConn(conn, run) })
 }
 
 func serveConn(conn net.Conn, run RunFunc) {
