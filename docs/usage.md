@@ -1,14 +1,14 @@
 # Usage
 
-| Command        | What it does                                                    |
-| -------------- | --------------------------------------------------------------- |
-| `bur`          | start a sandbox, running: `claude --dangerously-skip-permissions` |
-| `bur bash`     | same sandbox environment, but a shell instead                   |
-| `bur opencode` | or any other agent/command                                      |
-| `bur exec bash`| second process inside a running sandbox of this project         |
-| `bur ls`       | list running sandboxes                                          |
-| `bur clean`    | remove every bur container and stale devshell GC roots (asks first; `-f` skips) |
-| `bur init`     | write a starter `.bur.yaml` and a gitignored `.bur.env` for secrets - only what is missing |
+| Command            | What it does                                                    |
+| ------------------ | --------------------------------------------------------------- |
+| `bur`              | start a sandbox, running: `claude --dangerously-skip-permissions` |
+| `bur run bash`     | same sandbox environment, but a shell instead                   |
+| `bur run opencode` | or any other agent/command                                      |
+| `bur exec bash`    | second process inside a running sandbox of this project         |
+| `bur ls`           | list running sandboxes                                          |
+| `bur clean`        | remove every bur container and stale devshell GC roots (asks first; `-f` skips) |
+| `bur init`         | write a starter `.bur.yaml` and a gitignored `.bur.env` for secrets - only what is missing |
 
 ## Sandbox lifecycle
 
