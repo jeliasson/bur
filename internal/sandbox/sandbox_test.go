@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -133,4 +134,30 @@ func TestBuildRunArgsHomeTmpfsWritable(t *testing.T) {
 		}
 	}
 	t.Errorf("home tmpfs not writable for the keep-id user: %v", args)
+}
+
+// TestEntryScriptCommandNotFoundHint runs entryScript for real, no podman
+// involved: "env" stands in for the agent binary that exec "$@" lands on,
+// so the function export has to survive leaving bash before the agent's
+// own bash child can pick it back up.
+func TestEntryScriptCommandNotFoundHint(t *testing.T) {
+	bash, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not on PATH")
+	}
+	cmd := exec.Command(bash, "-c", entryScript, "bur",
+		"env", "bash", "-c", "definitely_missing_cmd_xyz")
+	cmd.Env = append(os.Environ(), "BUR_WORKDIR="+t.TempDir())
+	out, err := cmd.CombinedOutput()
+
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 127 {
+		t.Fatalf("exit error = %v, want *exec.ExitError with code 127 (output: %s)", err, out)
+	}
+	if !strings.Contains(string(out), "definitely_missing_cmd_xyz") {
+		t.Errorf("output does not name the missing command: %s", out)
+	}
+	if !strings.Contains(string(out), "/run/bur/AGENT.md") {
+		t.Errorf("output does not point at AGENT.md: %s", out)
+	}
 }

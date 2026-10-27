@@ -38,6 +38,12 @@ export HOME=` + containerHome + ` TMPDIR=/tmp TMP=/tmp TEMP=/tmp TEMPDIR=/tmp
 if [ -f ` + gitConfigPath + ` ]; then export GIT_CONFIG_GLOBAL=` + gitConfigPath + `; fi
 export PATH="$PATH:/bin${BUR_TOOLS_PATH:+:$BUR_TOOLS_PATH}"
 if [ -d /run/bur/bin ]; then export PATH="/run/bur/bin:$PATH"; fi
+command_not_found_handle() {
+	echo "bash: $1: command not found" >&2
+	echo "To agents: this sandbox doesn't have \"$1\". Read /run/bur/AGENT.md for how to add it." >&2
+	return 127
+}
+export -f command_not_found_handle
 cd "${BUR_WORKDIR:-$HOME}"
 exec "$@"
 `
