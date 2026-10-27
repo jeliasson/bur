@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/jeliasson/bur/internal/clipboard"
 	"github.com/jeliasson/bur/internal/config"
@@ -28,7 +29,8 @@ const usage = `bur - run an AI agent (or anything) in a one-shot rootless podman
 
 Usage:
   bur              start a sandbox with the configured command (default: claude)
-  bur <cmd> ...    start a sandbox with <cmd> instead
+  bur run <cmd> ...
+                   start a sandbox with <cmd> instead
   bur exec [--in <name>] <cmd> ...
                    run a command in a running sandbox of this project
   bur ls           list running sandboxes
@@ -105,6 +107,12 @@ func run(args []string) error {
 			return sandbox.Ls()
 		case "clean":
 			return cmdClean(len(args) > 1 && (args[1] == "-f" || args[1] == "--force"))
+		case "run":
+			args = args[1:]
+		default:
+			// Reserved for internal subcommands (exec, ls, init, clean, run, ...),
+			// so a bare "bur <cmd>" can't shadow one and silently stop working.
+			return fmt.Errorf("unknown command %q - to run it in a sandbox, use: bur run %s\nSee 'bur --help' for the full command list.", args[0], strings.Join(args, " "))
 		}
 	}
 

@@ -82,15 +82,15 @@ is in [how it works](docs/how-it-works.md).
 
 ## Usage
 
-| Command        | What it does                                                    |
-| -------------- | --------------------------------------------------------------- |
-| `bur`          | start a sandbox, running: `claude --dangerously-skip-permissions` |
-| `bur bash`     | same sandbox environment, but a shell instead                   |
-| `bur opencode` | or any other agent/command                                      |
-| `bur exec bash`| second process inside a running sandbox of this project         |
-| `bur ls`       | list running sandboxes                                          |
-| `bur clean`    | remove every bur container and stale devshell GC roots          |
-| `bur init`     | write a starter `.bur.yaml` and a gitignored `.bur.env`         |
+| Command            | What it does                                                    |
+| ------------------ | --------------------------------------------------------------- |
+| `bur`              | start a sandbox, running: `claude --dangerously-skip-permissions` |
+| `bur run bash`     | same sandbox environment, but a shell instead                   |
+| `bur run opencode` | or any other agent/command                                      |
+| `bur exec bash`    | second process inside a running sandbox of this project         |
+| `bur ls`           | list running sandboxes                                          |
+| `bur clean`        | remove every bur container and stale devshell GC roots          |
+| `bur init`         | write a starter `.bur.yaml` and a gitignored `.bur.env`         |
 
 Sandboxes are one-shot: each `bur` starts a fresh container that lives
 exactly as long as its main process - no daemon, no state directory, as many
