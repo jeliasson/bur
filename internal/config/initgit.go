@@ -11,10 +11,8 @@ import (
 
 const signingKeyFile = "signing_key"
 
-// InitGit sets up the global git identity for sandboxes: copies the host's
-// git user.name/user.email into ~/.config/bur/config.yaml and optionally
-// generates a dedicated SSH signing key. One-time convenience - after this,
-// the host git config is never consulted again.
+// InitGit is a one-time convenience: after it, the host git config is never
+// consulted again, and sandboxes read only ~/.config/bur/config.yaml.
 func InitGit(force bool) error {
 	confDir, err := os.UserConfigDir()
 	if err != nil {
@@ -78,8 +76,7 @@ func initGit(burDir string, ask func(string) bool, ident func() (string, string)
 	return nil
 }
 
-// gitBlock renders the YAML to append; strconv.Quote is close enough to
-// YAML double-quoting for names and emails.
+// strconv.Quote is close enough to YAML double-quoting for names and emails.
 func gitBlock(name, email string, signing bool) string {
 	b := fmt.Sprintf("git:\n  name: %s\n  email: %s\n", strconv.Quote(name), strconv.Quote(email))
 	if signing {
@@ -117,8 +114,6 @@ func hostGitIdentity() (string, string) {
 	return get("user.name"), get("user.email")
 }
 
-// keyComment follows the user@host convention so the key is attributable
-// to the machine it was generated on.
 func keyComment() string {
 	if hn, err := os.Hostname(); err == nil && hn != "" {
 		return "bur@" + hn

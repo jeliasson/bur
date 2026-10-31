@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// The two files `bur init` scaffolds; `envFile:` renames the second.
+// envFile: in a config renames DefaultEnvFile.
 const (
 	ProjectFile    = ".bur.yaml"
 	DefaultEnvFile = ".bur.env"
@@ -17,8 +17,8 @@ const (
 
 var errAborted = errors.New("aborted")
 
-// projectTemplate spells out the defaults bur already applies, so the
-// file is a no-op until edited.
+// Every value spelled out is bur's own default, so the scaffold is a no-op
+// until edited.
 const projectTemplate = `# bur project config - https://github.com/jeliasson/bur
 #
 # Merged over the global ~/.config/bur/config.yaml: scalars override,
@@ -56,36 +56,31 @@ clipboard: true                 # read-only paste bridge (text & images)
 #   pkgAdd: true                # let the agent pull extra nixpkgs tools mid-session
 #                               # with "bur-pkg add <name>" (host fetches, gone on exit)
 
-# git:                          # identity for commits made inside the sandbox
-#                               # (bur generates the gitconfig; the host's is never
-#                               # mounted). Set your name globally, override here.
+# git:                          # identity for sandbox commits. bur generates the
+#                               # gitconfig; the host's is never mounted. Set your
+#                               # name globally, override it here.
 #   name: bur
 #   email: bur@noreply.local
 #   signingKey: ~/.config/bur/signing_key
-#                               # optional SSH key for signing commits. Use a
-#                               # dedicated passphrase-less key uploaded to GitHub
-#                               # as a *signing* key (it cannot authenticate), and
-#                               # know the agent can read it: leaked, it signs as
-#                               # you until revoked. ssh-keygen -t ed25519 -N ""
+#                               # optional commit signing. Use a dedicated
+#                               # passphrase-less key (ssh-keygen -t ed25519 -N "")
+#                               # uploaded to GitHub as a *signing* key. The agent
+#                               # can read it: leaked, it signs as you until revoked
 `
 
 const envTemplate = `# bur sandbox secrets - KEY=VALUE per line, no interpolation, no multiline
-# values. Loaded on top of the env: block in ` + ProjectFile + `, and kept out of
-# git so it can hold what the committed config should not. bur finds it as
-# envFile: in ` + ProjectFile + ` (default: ` + DefaultEnvFile + `); a project without
-# secrets can simply delete it.
+# values. Loaded on top of the env: block in ` + ProjectFile + `, and gitignored,
+# so it can hold what the committed config should not. Renamed via envFile: in
+# ` + ProjectFile + ` (default: ` + DefaultEnvFile + `); delete it if this project has no secrets.
 #
-# Everything here is visible to the agent for the whole session, and with
-# network: open an agent can send it anywhere. Set network: none in
-# ` + ProjectFile + ` for sensitive work.
+# The agent sees everything here for the whole session, and with network: open
+# it can send it anywhere. Use network: none for sensitive work.
 
-# ANTHROPIC_API_KEY=
+# SOME_API_KEY=
 # GITHUB_TOKEN=
 `
 
-// Init scaffolds the missing project files in dir: .bur.yaml and the
-// gitignored secrets file it names via envFile:. Nothing is ever
-// overwritten; force only skips the repo-root prompt.
+// Init never overwrites an existing file; force only skips the prompt.
 func Init(dir string, force bool) error {
 	return initFiles(dir, asker(force))
 }
@@ -126,10 +121,8 @@ func initFiles(dir string, ask func(string) bool) error {
 	return nil
 }
 
-// envFileName resolves the secrets file name through both configs, so
-// init cannot scaffold a file nothing reads. A name that is not a plain
-// file in dir comes back as a skip note: "" opts out, and a ~ or
-// absolute path is shared between projects, not init's to create.
+// A name that is not a plain file in dir comes back as a skip note: "" opts
+// out, and a ~ or absolute path is shared between projects, not init's to create.
 func envFileName(dir string) (string, string, error) {
 	name := DefaultEnvFile
 	paths := []string{filepath.Join(dir, ProjectFile)}
@@ -154,7 +147,6 @@ func envFileName(dir string) (string, string, error) {
 	return name, "", nil
 }
 
-// scaffold writes content to dir/name unless the file already exists.
 func scaffold(dir, name, content, what string) error {
 	path := filepath.Join(dir, name)
 	if _, err := os.Stat(path); err == nil {
@@ -169,8 +161,7 @@ func scaffold(dir, name, content, what string) error {
 	return nil
 }
 
-// ensureGitignore appends entry to dir/.gitignore unless a line already
-// covers it. Reports whether it wrote.
+// Reports whether it wrote.
 func ensureGitignore(dir, entry string) (bool, error) {
 	path := filepath.Join(dir, ".gitignore")
 	data, err := os.ReadFile(path)
@@ -190,7 +181,6 @@ func ensureGitignore(dir, entry string) (bool, error) {
 	return true, os.WriteFile(path, []byte(out+entry+"\n"), 0o644)
 }
 
-// asker turns -f into a prompter that always says yes.
 func asker(force bool) func(string) bool {
 	if force {
 		return func(string) bool { return true }

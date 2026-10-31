@@ -38,7 +38,7 @@ func TestParseWlPasteArgs(t *testing.T) {
 		want shimReq
 		err  bool
 	}{
-		// the exact invocations claude uses
+		// the exact invocations agents use
 		{[]string{}, shimReq{kind: reqGet, newline: true}, false},
 		{[]string{"-l"}, shimReq{kind: reqTypes, newline: true}, false},
 		{[]string{"--type", "image/png"}, shimReq{kind: reqGet, typ: "image/png", newline: true}, false},
@@ -74,7 +74,7 @@ func TestParseXclipArgs(t *testing.T) {
 		want shimReq
 		err  bool
 	}{
-		// the exact invocations claude uses
+		// the exact invocations agents use
 		{[]string{"-selection", "clipboard", "-t", "TARGETS", "-o"}, shimReq{kind: reqTypes}, false},
 		{[]string{"-selection", "clipboard", "-t", "image/png", "-o"}, shimReq{kind: reqGet, typ: "image/png"}, false},
 		{[]string{"-selection", "clipboard", "-t", "text/plain", "-o"}, shimReq{kind: reqGet, typ: "text/plain"}, false},
