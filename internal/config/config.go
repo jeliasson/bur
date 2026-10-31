@@ -1,6 +1,5 @@
-// Package config loads and merges bur configuration from the global
-// config file and the project's .bur.yaml, locates the project root, and
-// scaffolds both files for `bur init`.
+// Package config loads and merges bur configuration, locates the project
+// root, and scaffolds the project files for `bur init`.
 package config
 
 import (
@@ -122,8 +121,8 @@ func loadFile(path string) (*fileConfig, []string, error) {
 	return &fc, warnings, nil
 }
 
-// envFilePath resolves envFile against the project root; ~ and absolute
-// paths allow one secrets file shared across projects, "" reads none.
+// ~ and absolute paths allow one secrets file shared across projects;
+// "" reads none.
 func envFilePath(root, name string) (string, error) {
 	switch {
 	case name == "":
@@ -140,10 +139,9 @@ func envFilePath(root, name string) (string, error) {
 	return filepath.Join(root, name), nil
 }
 
-// loadEnvFile reads the project's secrets file: KEY=VALUE per line, # for
-// comments, one optional layer of quotes stripped, no interpolation and
-// no multiline values. A missing file yields a nil map, distinct from
-// the empty one an existing file can produce.
+// Format: KEY=VALUE per line, # comments, one optional quote layer stripped,
+// no interpolation or multiline values. A missing file yields a nil map,
+// distinct from the empty one an existing file can produce.
 func loadEnvFile(path string) (map[string]string, []string, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
@@ -172,7 +170,6 @@ func loadEnvFile(path string) (map[string]string, []string, error) {
 	return env, warnings, nil
 }
 
-// unquote strips one layer of matching quotes.
 func unquote(v string) string {
 	if len(v) >= 2 && (v[0] == '"' || v[0] == '\'') && v[len(v)-1] == v[0] {
 		return v[1 : len(v)-1]
@@ -180,7 +177,7 @@ func unquote(v string) string {
 	return v
 }
 
-// apply merges a file config into cfg: scalars override, lists concat, env maps merge.
+// Merge semantics: scalars override, lists concat, env maps merge.
 func (cfg *Config) apply(fc *fileConfig) {
 	if fc == nil {
 		return
@@ -250,11 +247,9 @@ func (cfg *Config) validate() error {
 	return nil
 }
 
-// GuardRoot refuses a project root whose mount would cover the user's
-// home directory - the walk lands there when ~ itself has a .git (a
-// dotfiles checkout) or when no marker exists anywhere. Silently mounting
-// all of home would hand ~/.ssh and every other repo to the agent. A
-// .bur.yaml at the root is the explicit opt-in.
+// GuardRoot rejects a root that covers $HOME. The walk lands there when ~
+// itself has a .git, or when no marker exists anywhere; mounting all of home
+// would hand over ~/.ssh and every other repo. A .bur.yaml there opts in.
 func GuardRoot(root string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -282,8 +277,7 @@ func pathCovers(dir, sub string) bool {
 	return strings.HasPrefix(sub, dir+"/")
 }
 
-// FindProjectRoot walks up from cwd to the first directory containing
-// .bur.yaml, falling back to the first containing .git, else cwd itself.
+// FindProjectRoot walks up from cwd: .bur.yaml, else .git, else cwd.
 func FindProjectRoot(cwd string) string {
 	gitRoot := ""
 	for dir := cwd; ; dir = filepath.Dir(dir) {

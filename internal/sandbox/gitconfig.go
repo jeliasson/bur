@@ -14,10 +14,9 @@ const (
 	signingKeyPath = "/run/bur/signing_key"
 )
 
-// writeGitConfig renders the sandbox's global gitconfig into the env dir.
-// The host git config is never mounted: identity comes from bur config, and
-// signing stays off unless a dedicated key is configured - inherited signing
-// settings would otherwise fail every commit on a key that is not there.
+// The host git config is never mounted, and signing stays off unless a
+// dedicated key is configured: inherited signing settings would fail every
+// commit on a key that is not there.
 func writeGitConfig(envDir string, cfg config.Config) error {
 	var b strings.Builder
 	b.WriteString("[user]\n")
@@ -37,8 +36,7 @@ func writeGitConfig(envDir string, cfg config.Config) error {
 	return os.WriteFile(envDir+"/gitconfig", []byte(b.String()), 0o644)
 }
 
-// gitConfigValue quotes a value for git's config syntax. Newlines are
-// rejected upstream in config validation.
+// Newlines are rejected upstream in config validation.
 func gitConfigValue(v string) string {
 	v = strings.ReplaceAll(v, `\`, `\\`)
 	v = strings.ReplaceAll(v, `"`, `\"`)

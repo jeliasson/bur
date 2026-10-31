@@ -18,13 +18,14 @@
 </div>
 
 > [!CAUTION]
-> This project is early stage. Do not use it in a production environment
-> without vetting and screening the code yourself first.
+> This project is early stage. Do not use it in production without vetting
+> the code yourself first.
 
-Run AI coding agents (`claude` by default) with full permissions *inside* a
-rootless podman container instead of rubber-stamping approval prompts on the
-host. Nix-first: the project's devshell (`shell.nix` or flake) **is** the
-container environment - no images to build or maintain.
+Run a command with full permissions *inside* a rootless podman container
+instead of rubber-stamping approval prompts on the host. Typically that
+command is an AI coding agent. Nix-first: the project's devshell
+(`shell.nix` or flake) **is** the container environment - no images to build
+or maintain.
 
 ## Quick start
 
@@ -41,14 +42,15 @@ From any project with a `shell.nix` or `flake.nix`:
 bur
 ```
 
-That starts a fresh sandbox running `claude --dangerously-skip-permissions`:
-full permissions inside the cage, none outside it. Exit claude and the
-container is gone. For NixOS, other distros, source builds, and first-run
-notes, see [installation](docs/installation.md).
+That starts a fresh sandbox running the configured command, by default
+`claude --dangerously-skip-permissions`: full permissions inside the cage,
+none outside it. Exit the command and the container is gone.
+For NixOS, other distros, source builds, and first-run notes, see
+[installation](docs/installation.md).
 
 ## How it works
 
-The devshell is built on the host, where nix and all caches live, and its
+The devshell is built on the host, where nix and all caches live. Its
 environment is sourced inside a throwaway container. Only three things cross
 the wall:
 
@@ -64,7 +66,7 @@ flowchart LR
 
     subgraph sandbox["Sandbox&nbsp;&nbsp;·&nbsp;&nbsp;rootless podman, --rm"]
         direction TB
-        agent["claude --dangerously-skip-permissions"]
+        agent["your command, full permissions"]
         gone(("gone on exit"))
     end
 
@@ -76,15 +78,15 @@ flowchart LR
 ```
 
 Everything else stays outside: no `~/.ssh`, no git credentials, no display
-server socket, no other repos. The full story - devshell resolution, the
-read-only clipboard bridge, and pulling tools mid-session with `bur-pkg` -
-is in [how it works](docs/how-it-works.md).
+server socket, no other repos. Devshell resolution, the read-only clipboard
+bridge, and pulling tools mid-session with `bur-pkg` are covered in
+[how it works](docs/how-it-works.md).
 
 ## Usage
 
 | Command            | What it does                                                    |
 | ------------------ | --------------------------------------------------------------- |
-| `bur`              | start a sandbox, running: `claude --dangerously-skip-permissions` |
+| `bur`              | start a sandbox running the configured command                  |
 | `bur run bash`     | same sandbox environment, but a shell instead                   |
 | `bur run opencode` | or any other agent/command                                      |
 | `bur exec bash`    | second process inside a running sandbox of this project         |
@@ -92,8 +94,8 @@ is in [how it works](docs/how-it-works.md).
 | `bur clean`        | remove every bur container and stale devshell GC roots          |
 | `bur init`         | write a starter `.bur.yaml` and a gitignored `.bur.env`         |
 
-Sandboxes are one-shot: each `bur` starts a fresh container that lives
-exactly as long as its main process - no daemon, no state directory, as many
+Sandboxes are one-shot. Each `bur` starts a fresh container that lives
+exactly as long as its main process: no daemon, no state directory, as many
 parallel sandboxes as you like. Details in [usage](docs/usage.md).
 
 ## Documentation
@@ -107,10 +109,10 @@ parallel sandboxes as you like. Details in [usage](docs/usage.md).
 ## Roadmap
 
 The planned v2 flagship is `network: filtered`, a deny-by-default egress
-allowlist. Beyond that the aim is to be a good citizen of the nix
-ecosystem - nixpkgs inclusion is on the list. The nix-specific behavior
-stays namespaced (the `nix:` config key), so other environment backends
-remain possible later - macOS, hosts without nix - but nix comes first.
+allowlist. Beyond that, the aim is to be a good citizen of the nix
+ecosystem, and nixpkgs inclusion is on the list. Nix-specific behavior stays
+namespaced under the `nix:` config key, so other environment backends remain
+possible later: macOS, hosts without nix. Nix comes first.
 
 ## License
 

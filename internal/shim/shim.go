@@ -9,10 +9,10 @@ import (
 	"strings"
 )
 
-// Install populates binDir with the given names, idempotently so each
-// bridge can bring its own. A nix-installed bur is already mounted into
-// the sandbox, so a symlink suffices; other builds are copied in once as
-// "bur" - and had better be static, which CGO_ENABLED=0 dev builds are.
+// Install is idempotent, so each bridge can bring its own names. A nix-store
+// bur is already mounted into the sandbox and can just be symlinked; other
+// builds are copied in once and had better be static, as CGO_ENABLED=0 dev
+// builds are.
 func Install(binDir string, names ...string) error {
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return err
