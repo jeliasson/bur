@@ -4,10 +4,10 @@ What the cage does and doesn't do.
 
 ## Protected ✅
 
-- The rest of your home (`~/.ssh`, other repos). bur refuses to start
-  when the project root would resolve to `$HOME` itself - the classic
-  trap is a dotfiles `.git` in `~` - so the home mount can never happen
-  by accident; a `.bur.yaml` placed there is the explicit opt-in.
+- The rest of your home (`~/.ssh`, other repos). bur refuses to start when
+  the project root would resolve to `$HOME` itself; the classic trap is a
+  dotfiles `.git` in `~`. So the home mount never happens by accident - a
+  `.bur.yaml` placed there is the explicit opt-in.
 - Your nix store (mounted read-only), your OS.
 - Workspace file ownership - the agent runs as your uid via
   `--userns=keep-id`, so workspace files stay yours.
@@ -15,8 +15,8 @@ What the cage does and doesn't do.
   starts is reachable from the host but not the LAN. Opt into wider exposure
   per-port with an explicit host IP (`"0.0.0.0:5173:5173"`).
 - Your display server. Clipboard paste goes through a read-only bridge
-  (text and image types only); no Wayland or X11 socket is ever mounted,
-  and clipboard *writes* are not bridged - an agent that could seed your
+  (text and image types only), and no Wayland or X11 socket is ever mounted.
+  Clipboard *writes* are not bridged: an agent that could seed your
   clipboard could poison your next paste into a terminal.
 
 ## Not protected ⚠️
@@ -25,11 +25,12 @@ What the cage does and doesn't do.
   `.git`, so local history can go down with the ship. The remote is the
   real safety net, and since neither `~/.ssh` nor `~/.git-credentials` is
   mounted, the agent normally has no way to push to it either.
-- A cloned repo is trusted input before any cage exists: its `.bur.yaml`
-  can add mounts, publish ports, set env, and replace the command, and its
-  devshell (`shell.nix` / flake) is evaluated and built on the host when
-  `bur` starts. Review both before the first run in an untrusted checkout.
-- `~/.claude` is mounted rw - the agent can edit its own global settings.
+- A cloned repo is trusted input before any cage exists. Its `.bur.yaml` can
+  add mounts, publish ports, set env, and replace the command. Its devshell
+  (`shell.nix` / flake) is evaluated and built on the host when `bur`
+  starts. Review both before the first run in an untrusted checkout.
+- The mounted agent state directory (`~/.claude`) is rw, so the agent can
+  edit its own global settings.
 - Secrets you pass via `env` or `.bur.env` + open egress = an exfiltration
   channel. Keeping them out of git does not keep them out of the cage. Use
   `network: none` for sensitive work; a deny-by-default egress allowlist
@@ -41,13 +42,13 @@ What the cage does and doesn't do.
   runs - that is what makes paste work. Copy a password from your manager
   mid-session and the agent could read it; set `clipboard: false` for
   sensitive work.
-- `bur-pkg` lets the agent fetch any nixpkgs package via the host - trusted
-  code from your own nixpkgs pin, never evaluated from agent-writable files,
-  and gone after the next GC, but still your disk and bandwidth. Set
-  `nix.pkgAdd: false` to close that valve.
+- `bur-pkg` lets the agent fetch any nixpkgs package via the host. It is
+  trusted code from your own nixpkgs pin, never evaluated from
+  agent-writable files, and gone after the next GC - but still your disk and
+  bandwidth. Set `nix.pkgAdd: false` to close that valve.
 
 Changing the *environment* mid-session is still deliberate friction: the
-agent edits `shell.nix`, you restart `bur` - devshell changes get reviewed
+agent edits `shell.nix`, you restart `bur`. Devshell changes get reviewed
 like code. `bur-pkg` is the sanctioned exception for grabbing a one-off
-tool, which is why it is limited to bare attribute names from the host's
-own nixpkgs and leaves no trace past the sandbox.
+tool, which is why it is limited to bare attribute names from the host's own
+nixpkgs and leaves no trace past the sandbox.

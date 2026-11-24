@@ -1,14 +1,11 @@
-// Package pkgbridge lets a sandboxed agent pull extra tools from nixpkgs
-// without any nix machinery entering the cage: the host side listens on
-// a unix socket in the env dir, realizes requested packages with its own
-// nix, and symlinks their bin entries into /run/bur/bin - already on the
-// sandbox PATH, pointing into the live read-only /nix/store mount.
-// Inside the sandbox, bur-pkg is bur re-exec'd in shim mode.
-//
-// Security rests on two facts: names resolve only against the host's own
-// nixpkgs registry, never against anything the sandbox can write to (the
-// project's flake.lock would let the agent pick what the host evaluates),
-// and the host never runs what it builds.
+// Package pkgbridge lets a sandboxed agent pull extra tools from nixpkgs:
+// the host realizes requested packages with its own nix and symlinks their
+// bin entries into /run/bur/bin, already on the sandbox PATH via the
+// read-only /nix/store mount. bur-pkg inside the sandbox is bur re-exec'd
+// in shim mode. Names resolve only against the host's own nixpkgs registry,
+// never against anything the sandbox can write to (the project's flake.lock
+// would let the agent pick what the host evaluates), and the host never
+// runs what it builds.
 package pkgbridge
 
 import (
@@ -31,8 +28,7 @@ import (
 	"github.com/jeliasson/bur/internal/shim"
 )
 
-// Version is stamped by main at startup; the shim prints it in its
-// --version output.
+// Version is stamped by main at startup.
 var Version = "dev"
 
 const (
@@ -53,12 +49,9 @@ const (
 // gc-root file name.
 var nameRE = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]*$`)
 
-// AddFunc realizes one package and returns the tool names now on the
-// sandbox PATH.
+// AddFunc realizes one package and returns the tool names now on the sandbox PATH.
 type AddFunc func(name string) ([]string, error)
 
-// StartBridge installs the bur-pkg shim in the env dir and serves
-// requests until the process exits.
 func StartBridge(envDir string) error {
 	if err := shim.Install(filepath.Join(envDir, "bin"), "bur-pkg"); err != nil {
 		return err
@@ -67,9 +60,8 @@ func StartBridge(envDir string) error {
 	return serveSocket(filepath.Join(envDir, sockName), add)
 }
 
-// realize builds nixpkgs#name on the host and links its bin entries into
-// the env dir. The --out-link doubles as a GC root that dangles once the
-// env dir is removed on exit, so the next nix GC sweeps the package away.
+// realize's --out-link doubles as a GC root that dangles once the env dir
+// is removed on exit, so the next nix GC sweeps the package away.
 func realize(envDir, name string) ([]string, error) {
 	rootsDir := filepath.Join(envDir, "pkgroots")
 	if err := os.MkdirAll(rootsDir, 0o755); err != nil {
@@ -133,8 +125,7 @@ func linkBins(out, binDir string) ([]string, error) {
 	return tools, nil
 }
 
-// errorLine digs the useful line out of nix's stderr: the last one
-// mentioning "error:", else the last non-empty one.
+// errorLine digs the useful line out of nix's stderr.
 func errorLine(s string) string {
 	pick := ""
 	for _, line := range strings.Split(s, "\n") {
@@ -206,8 +197,7 @@ the host and land on PATH immediately, in already-running shells too;
 everything vanishes when the sandbox exits. Names are nixpkgs attribute
 names - try the obvious one, or search https://search.nixos.org/packages`
 
-// RunShim is the shim entry point: bur invoked as bur-pkg inside the
-// sandbox. It returns the process exit code.
+// RunShim is the sandbox-side entry point and returns the process exit code.
 func RunShim(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 {
 		switch args[0] {

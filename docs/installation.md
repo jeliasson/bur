@@ -11,9 +11,9 @@ nix profile install github:jeliasson/bur
 
 ## First-run notes
 
-Two things to know for the first run: the command bur starts (`claude` by
-default) must be nix-installed - on the host or in the devshell - so it
-resolves to `/nix/store`; a `claude` from npm will not exist inside the
+Two things to know for the first run. The command bur starts must be
+nix-installed, on the host or in the devshell, so it resolves to
+`/nix/store`; an npm- or pip-installed CLI will not exist inside the
 sandbox. And a project without a devshell still works - you get a minimal
 sandbox (bash, CA certificates, your command), just no toolchain.
 
@@ -49,8 +49,8 @@ make build   # or: go build ./cmd/bur
 
 A source build does not embed the `bur-base` image; point `BUR_BASE_IMAGE`
 at any image that provides bash and CA certificates. `nix develop` sets it
-to the flake's own image, which `make base-image` loads. Note that bur still
-needs nix on the host at runtime - the project devshell is the container
-environment, and commands are resolved through `/nix/store`. Making bur
-useful without nix would be a new environment backend (see the roadmap in
-the README), not a build flavor.
+to the flake's own image, which `make base-image` loads. bur still needs nix
+on the host at runtime: the project devshell is the container environment,
+and commands are resolved through `/nix/store`. Making bur useful without nix
+would be a new environment backend (see the roadmap in the README), not a
+build flavor.

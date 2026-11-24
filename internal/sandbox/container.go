@@ -1,6 +1,5 @@
-// Package sandbox owns everything podman: naming and starting one-shot
-// containers, exec-ing into them, and listing or cleaning them up. It
-// also renders the gitconfig the sandbox commits under.
+// Package sandbox owns everything podman: one-shot containers, execs into
+// them, and the gitconfig they commit under.
 package sandbox
 
 import (
@@ -27,11 +26,9 @@ var (
 
 const containerHome = "/home/bur"
 
-// entryScript runs as the container main process (and for exec):
-// source the devshell env, normalize the basics, run the command.
-// The clipboard shims are prepended, not appended: a devshell wl-paste
-// or xclip could never reach a compositor from in here, so the bridge
-// must win the PATH race for paste to work at all.
+// The clipboard shims are prepended, not appended: a devshell wl-paste or
+// xclip could never reach a compositor from in here, so the bridge must win
+// the PATH race for paste to work at all.
 const entryScript = `
 if [ -f /run/bur/env.sh ]; then . /run/bur/env.sh; fi
 export HOME=` + containerHome + ` TMPDIR=/tmp TMP=/tmp TEMP=/tmp TEMPDIR=/tmp
@@ -51,8 +48,7 @@ exec "$@"
 var unsafeNameChars = regexp.MustCompile(`[^a-z0-9]+`)
 
 // Sandboxes are one-shot, so names need to be unique, not stable -
-// adjective-animal reads better than a pid in `podman ps` and gives each
-// sandbox a memorable handle for the exec picker and `bur exec --in`.
+// adjective-animal gives each one a memorable handle for the exec picker.
 var nameAdjectives = []string{
 	"bold", "brave", "calm", "cheeky", "clever", "cosy", "daring", "eager",
 	"feisty", "gentle", "jolly", "keen", "lively", "merry", "nimble", "perky",
@@ -74,9 +70,6 @@ func sanitizeBase(root string) string {
 	return base
 }
 
-// ContainerName invents a fresh bur-<project>-<adjective>-<animal> name,
-// rerolled while podman knows the name. The pid fallback keeps startup
-// going if podman keeps claiming collisions.
 func ContainerName(root string) string {
 	base := sanitizeBase(root)
 	for range 10 {
@@ -114,10 +107,10 @@ func EnsureBaseImage() error {
 	return cmd.Run()
 }
 
-// resolveArgv0 resolves the command through the host PATH to a nix store
-// path so it works inside the container regardless of the devshell PATH.
-// Only the directory is resolved - the leaf symlink must survive so
-// multi-call binaries (coreutils) still see their applet name in argv[0].
+// The command is resolved to a store path so it runs inside the container
+// whatever the devshell PATH holds. Only the directory is resolved - the leaf
+// symlink must survive so multi-call binaries (coreutils) still see their
+// applet name in argv[0].
 func resolveArgv0(argv []string) []string {
 	path, err := exec.LookPath(argv[0])
 	if err != nil {
@@ -132,12 +125,9 @@ func resolveArgv0(argv []string) []string {
 	return out
 }
 
-// resolveToolDirs maps configured tool names to their nix store bin
-// directories, for appending to the container PATH. The full binary path
-// is resolved (not just its directory, as resolveArgv0 does): host PATH
+// The full binary path is resolved, not just its directory: host PATH
 // entries are typically profile symlink farms spanning every installed
-// package, and appending one of those would expose the whole host profile
-// instead of the listed tools.
+// package, and one of those would expose the whole profile to the sandbox.
 func resolveToolDirs(tools []string) []string {
 	var dirs []string
 	seen := map[string]bool{}
@@ -161,11 +151,9 @@ func resolveToolDirs(tools []string) []string {
 	return dirs
 }
 
-// AgentHint names the agent being sandboxed for herdr's benefit. Herdr
-// identifies agent panes by scanning the pane's foreground processes, but
-// the real agent process is hidden behind conmon inside the container, so
-// bur advertises it via HERDR_AGENT on the host-visible podman process.
-// Herdr ignores names it doesn't recognize, so no filtering is needed.
+// AgentHint feeds HERDR_AGENT on the podman process. Herdr identifies agent
+// panes by scanning foreground processes, and the real process is hidden
+// behind conmon inside the container.
 func AgentHint(argv []string) string {
 	if len(argv) == 0 {
 		return ""
@@ -173,8 +161,8 @@ func AgentHint(argv []string) string {
 	return strings.ToLower(filepath.Base(argv[0]))
 }
 
-// hostPath expands ~ and resolves symlinks (podman needs real paths;
-// e.g. ~/.claude is itself a symlink into the nix repo).
+// hostPath expands ~ and resolves symlinks (podman needs real paths, and
+// state directories are often symlinks into a nix-managed dotfiles repo).
 func hostPath(p string) (string, error) {
 	if p == "~" || strings.HasPrefix(p, "~/") {
 		home, err := os.UserHomeDir()
@@ -281,9 +269,8 @@ func BuildRunArgs(s RunSpec, argv []string) ([]string, error) {
 		args = append(args, "-v", v)
 	}
 
-	// Config env travels in a file, never as -e flags: the podman process
-	// stays in the foreground for the sandbox's whole lifetime, and its
-	// command line is world-readable in /proc - no place for secrets.
+	// Config env travels in a file, never as -e flags: the podman command line
+	// lives in world-readable /proc for the sandbox's whole lifetime.
 	if len(s.Cfg.Env) > 0 {
 		envFile, err := writeEnvFile(s.EnvDir, s.Cfg.Env)
 		if err != nil {
@@ -308,9 +295,8 @@ func BuildRunArgs(s RunSpec, argv []string) ([]string, error) {
 	return args, nil
 }
 
-// writeEnvFile renders config env as a KEY=VALUE file in the env dir
-// (0700, one per sandbox) for podman's --env-file. The format is
-// line-based with no escaping, so newlines cannot be represented.
+// podman's --env-file format is line-based with no escaping, so newlines
+// cannot be represented.
 func writeEnvFile(envDir string, env map[string]string) (string, error) {
 	if envDir == "" {
 		return "", fmt.Errorf("env configured but no env dir to hold it")
@@ -347,8 +333,8 @@ func BuildExecArgs(name string, argv []string) []string {
 
 func RunPodman(args []string, agent string) error {
 	cmd := exec.Command("podman", args...)
-	// Herdr reads /proc/<pid>/environ, which is fixed at exec time - the
-	// hint must be set on the podman child, os.Setenv here would be invisible.
+	// /proc/<pid>/environ is fixed at exec time, so the hint has to go on the
+	// podman child - an os.Setenv here would be invisible to herdr.
 	if agent != "" && os.Getenv("HERDR_AGENT") == "" {
 		cmd.Env = append(os.Environ(), "HERDR_AGENT="+agent)
 	}

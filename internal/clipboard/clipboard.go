@@ -1,5 +1,10 @@
-// Package clipboard implements the host<->sandbox clipboard bridge and
-// the wl-paste/xclip shims that bur runs as inside the sandbox.
+// Package clipboard bridges host clipboard reads into the sandbox, so an
+// agent can paste host content without the compositor socket entering the
+// container: the host listens on a unix socket in the env dir and runs the
+// real tool, while /run/bur/bin holds wl-paste and xclip names that are bur
+// re-exec'd in shim mode - agents read the clipboard through exactly these
+// two tools. Read-only by design: an agent that can seed the host clipboard
+// can poison the user's next paste into a terminal.
 package clipboard
 
 import (
@@ -21,20 +26,7 @@ import (
 	"github.com/jeliasson/bur/internal/shim"
 )
 
-// The clipboard bridge lets an agent paste host clipboard content (text
-// and images) without the compositor socket ever entering the cage. The
-// host side listens on a unix socket in the env dir (/run/bur/clip.sock
-// in the sandbox) and runs the real clipboard tool; inside the sandbox,
-// /run/bur/bin holds wl-paste and xclip names that are bur re-exec'd in
-// shim mode, forwarding reads over the socket. Agents need no changes:
-// claude, for one, reads the clipboard through exactly these two tools.
-//
-// The bridge is read-only by design. Writes are not forwarded - an agent
-// that can seed the host clipboard can poison the user's next paste into
-// a terminal, which is a cage break in the making.
-
-// Version is stamped by main at startup; the shims print it in their
-// -version output.
+// Version is stamped by main at startup.
 var Version = "dev"
 
 const (
@@ -57,10 +49,8 @@ type Backend struct {
 	tool string // "wl-paste" or "xclip"
 }
 
-// DetectBackend picks the host tool matching the session, preferring
-// Wayland when both displays are up (XWayland). A display without its
-// tool earns a note - the user can install it; no display at all is a
-// headless host and stays silent.
+// DetectBackend prefers Wayland when both displays are up (XWayland). No
+// display at all is a headless host, so it stays silent instead of noting.
 func DetectBackend() (*Backend, string) {
 	wayland := os.Getenv("WAYLAND_DISPLAY") != ""
 	x11 := os.Getenv("DISPLAY") != ""
@@ -83,11 +73,9 @@ func DetectBackend() (*Backend, string) {
 	return nil, ""
 }
 
-// Run executes the host clipboard tool for one bridge request. The tool
-// always runs with a fixed argv shape - typ is a validated value slot,
-// nothing from the sandbox is ever interpreted as an option or by a
-// shell. Text is fetched raw (--no-newline); the shim owns newline
-// cosmetics.
+// Run keeps a fixed argv shape: typ is a validated value slot, so nothing
+// from the sandbox ever becomes an option or a shell word. Text is fetched
+// raw (--no-newline); the shim owns newline cosmetics.
 func (b *Backend) Run(kind, typ string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -135,9 +123,6 @@ func firstLine(s string) string {
 	return s
 }
 
-// StartBridge sets up the sandbox-facing half in the env dir (shim
-// names under bin/, the socket next to env.sh) and serves requests until
-// the process exits.
 func StartBridge(envDir string, run RunFunc) error {
 	if err := shim.Install(filepath.Join(envDir, "bin"), "wl-paste", "xclip"); err != nil {
 		return err
@@ -204,8 +189,7 @@ type shimReq struct {
 // flags: print an identifying line and exit 0, like the real tools.
 var errVersion = errors.New("version request")
 
-// RunShim is the shim entry point: bur invoked as wl-paste or xclip
-// inside the sandbox. It returns the process exit code.
+// RunShim is the sandbox-side entry point and returns the process exit code.
 func RunShim(tool string, args []string, stdout, stderr io.Writer) int {
 	req, err := parseShimArgs(tool, args)
 	if err == errVersion {

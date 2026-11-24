@@ -33,9 +33,7 @@ func (r Ref) String() string {
 	return "flake " + r.Flake
 }
 
-// Resolve picks the devshell source: nixShell from config (a flake
-// installable when it contains '#', a file path otherwise), else
-// shell.nix, else the project flake's default devShell.
+// Resolve prefers nixShell from config, then shell.nix, then the project flake.
 func Resolve(root, nixShell string) Ref {
 	if nixShell != "" {
 		s := nixShell
@@ -58,9 +56,8 @@ func Resolve(root, nixShell string) Ref {
 	return Ref{}
 }
 
-// BuildEnv builds the project devshell on the host and returns the
-// sourceable environment script. The --profile link doubles as a GC root
-// so nix-collect-garbage cannot remove store paths under a sandbox.
+// BuildEnv passes --profile so the link doubles as a GC root: nix-collect-garbage
+// cannot then remove store paths out from under a running sandbox.
 func BuildEnv(ref Ref, root string) ([]byte, error) {
 	gcroots, err := gcrootsDir()
 	if err != nil {
@@ -103,9 +100,8 @@ func gcrootsDir() (string, error) {
 	return filepath.Join(cacheDir, "bur", "gcroots"), nil
 }
 
-// PruneGCRoots drops the devshell profiles of projects that no longer
-// exist, so their store paths become garbage-collectable again. Returns
-// how many projects were pruned.
+// PruneGCRoots drops the profiles of projects that no longer exist, so their
+// store paths become garbage-collectable again. Returns the number pruned.
 func PruneGCRoots() (int, error) {
 	dir, err := gcrootsDir()
 	if err != nil {
@@ -135,10 +131,8 @@ func PruneGCRoots() (int, error) {
 		if _, err := os.Stat(root); err == nil {
 			continue // project still exists, keep its root
 		}
-		// The profile link, its generations, and the sidecar all share
-		// the hash prefix; removing a live project's root by accident
-		// would only cost a devshell rebuild, but the stat above keeps
-		// even that from happening.
+		// The profile link, its generations and the sidecar all share the
+		// hash prefix.
 		links, _ := filepath.Glob(filepath.Join(dir, hash+"*"))
 		for _, l := range links {
 			os.Remove(l)

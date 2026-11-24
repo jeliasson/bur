@@ -16,8 +16,7 @@ import (
 	"github.com/jeliasson/bur/internal/sandbox"
 )
 
-// Set via -ldflags at build time (-X main.version etc.); wired into the
-// internal packages at startup.
+// Set via -ldflags at build time (-X main.version etc.).
 var (
 	version       = "dev"
 	baseImageTar  = ""
@@ -25,10 +24,10 @@ var (
 	baseImageRoot = ""
 )
 
-const usage = `bur - run an AI agent (or anything) in a one-shot rootless podman sandbox
+const usage = `bur - run a command in a one-shot rootless podman sandbox
 
 Usage:
-  bur              start a sandbox with the configured command (default: claude)
+  bur              start a sandbox with the configured command
   bur run <cmd> ...
                    start a sandbox with <cmd> instead
   bur exec [--in <name>] <cmd> ...
@@ -41,7 +40,7 @@ Usage:
   bur clean [-f]   remove all bur containers and stale devshell gc roots (asks first)
   bur --version    print the bur version
 
-A sandbox lives exactly as long as its command: exit the agent and the
+A sandbox lives exactly as long as its command: exit the command and the
 container is gone. Run as many per project as you like.
 
 Config: ~/.config/bur/config.yaml (global), .bur.yaml (project),
@@ -54,8 +53,8 @@ func main() {
 	sandbox.BaseImageRef = baseImageRef
 	sandbox.BaseImageRoot = baseImageRoot
 
-	// bur doubles as its own bridge shims: inside a sandbox,
-	// /run/bur/bin/{wl-paste,xclip,bur-pkg} link back to this binary.
+	// Inside a sandbox, /run/bur/bin/{wl-paste,xclip,bur-pkg} link back to
+	// this binary, so bur doubles as its own bridge shims.
 	switch base := filepath.Base(os.Args[0]); base {
 	case "wl-paste", "xclip":
 		os.Exit(clipboard.RunShim(base, os.Args[1:], os.Stdout, os.Stderr))
@@ -110,8 +109,8 @@ func run(args []string) error {
 		case "run":
 			args = args[1:]
 		default:
-			// Reserved for internal subcommands (exec, ls, init, clean, run, ...),
-			// so a bare "bur <cmd>" can't shadow one and silently stop working.
+			// The subcommand namespace stays reserved, so a bare "bur <cmd>"
+			// can't shadow a future one and silently stop working.
 			return fmt.Errorf("unknown command %q - to run it in a sandbox, use: bur run %s\nSee 'bur --help' for the full command list.", args[0], strings.Join(args, " "))
 		}
 	}
@@ -137,8 +136,7 @@ func run(args []string) error {
 		return err
 	}
 
-	// The env dir becomes /run/bur in the sandbox: env.sh (devshell),
-	// plus the clipboard bridge's socket and shim binaries.
+	// This dir is mounted as /run/bur in the sandbox.
 	envDir, err := os.MkdirTemp("", "bur-env-")
 	if err != nil {
 		return err
@@ -172,8 +170,6 @@ func run(args []string) error {
 	return sandbox.RunPodman(runArgs, sandbox.AgentHint(argv))
 }
 
-// writeDevshellEnv builds the project's nix devshell into envDir/env.sh,
-// which the container entry script sources.
 func writeDevshellEnv(envDir, root, nixShell string) error {
 	ref := nixenv.Resolve(root, nixShell)
 	if ref == (nixenv.Ref{}) {
@@ -187,18 +183,15 @@ func writeDevshellEnv(envDir, root, nixShell string) error {
 	return os.WriteFile(filepath.Join(envDir, "env.sh"), script, 0o644)
 }
 
-// startBridges brings up the clipboard and package bridges in envDir. A
-// bridge that cannot start is a warning, not an error - the sandbox is
-// still usable without it. Reports whether bur-pkg ended up available.
+// A bridge that cannot start is a warning, not an error.
 func startBridges(envDir string, cfg *config.Config) bool {
 	if cfg.Clipboard {
 		if backend, note := clipboard.DetectBackend(); backend != nil {
 			if err := clipboard.StartBridge(envDir, backend.Run); err != nil {
 				fmt.Fprintln(os.Stderr, "bur: warning: clipboard bridge failed to start:", err)
 			} else {
-				// Agents gate clipboard code on the display env; the values
-				// are cosmetic in the sandbox - the shims never touch a
-				// display server. Explicit env config wins.
+				// Agents gate clipboard code on the display env; the values are
+				// cosmetic here, since the shims never touch a display server.
 				for _, k := range []string{"WAYLAND_DISPLAY", "DISPLAY"} {
 					if v, ok := os.LookupEnv(k); ok {
 						if _, set := cfg.Env[k]; !set {
@@ -226,8 +219,6 @@ func startBridges(envDir string, cfg *config.Config) bool {
 	return true
 }
 
-// publishPorts allocates the configured ports on the host and reports
-// where each one landed. Nothing is published with network: none.
 func publishPorts(cfg config.Config) ([]ports.Mapping, error) {
 	if cfg.Network == "none" {
 		if len(cfg.Ports) > 0 {
@@ -256,8 +247,6 @@ func publishPorts(cfg config.Config) ([]ports.Mapping, error) {
 	return portMaps, nil
 }
 
-// cmdInit scaffolds the missing project files in the current directory;
-// --git instead sets up the global git identity, -f skips the prompts.
 func cmdInit(cwd string, args []string) error {
 	force, git := false, false
 	for _, a := range args {
@@ -276,8 +265,6 @@ func cmdInit(cwd string, args []string) error {
 	return config.Init(cwd, force)
 }
 
-// cmdClean sweeps both kinds of leftovers: orphaned containers (sandbox
-// side) and devshell gc roots whose project no longer exists (nixenv side).
 func cmdClean(force bool) error {
 	removed, err := sandbox.Clean(force)
 	if err != nil {
@@ -296,8 +283,6 @@ func cmdClean(force bool) error {
 	return nil
 }
 
-// agentMD lands at /run/bur/AGENT.md: orientation for the agent on what
-// cage it is in and what the bridges offer.
 const agentMD = `# bur sandbox
 
 This shell runs inside bur, a one-shot rootless container. The project is
@@ -328,8 +313,8 @@ func writeAgentMD(envDir string, pkgAdd bool) error {
 	return os.WriteFile(filepath.Join(envDir, "AGENT.md"), []byte(doc), 0o644)
 }
 
-// cmdExec targets a sandbox of the current project (same root walk as the
-// config); --in <name> bypasses that for scripts and cross-project execs.
+// Targets a sandbox of the current project using the same root walk as the
+// config; --in <name> bypasses that for scripts and cross-project execs.
 func cmdExec(cwd string, args []string) error {
 	var target string
 	if len(args) > 0 && args[0] == "--in" {

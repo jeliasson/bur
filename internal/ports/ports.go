@@ -22,8 +22,6 @@ type Mapping struct {
 	Requested int
 }
 
-// BindIP is the interface a port publishes on: the spec's explicit host IP,
-// or the loopback default when the spec omits one.
 func (p Mapping) BindIP() string {
 	if p.HostIP == "" {
 		return DefaultPublishIP
@@ -37,8 +35,7 @@ func (p Mapping) BindIP() string {
 //	hostPort:containerPort           -> default (loopback) IP
 //	hostIP:hostPort:containerPort    -> explicit host IP (e.g. 0.0.0.0 for LAN)
 //
-// An empty returned hostIP means "use DefaultPublishIP". Only IPv4 host IPs
-// are supported (the spec is colon-split, so bracketed IPv6 does not parse).
+// Colon-split, so bracketed IPv6 host IPs do not parse.
 func ParseSpec(spec string) (hostIP string, host, container int, err error) {
 	parts := strings.Split(spec, ":")
 	switch len(parts) {
@@ -80,9 +77,8 @@ func portFree(ip string, p int) bool {
 	return true
 }
 
-// Allocate resolves requested ports to free host ports, scanning
-// upward from the requested port when taken. The free check probes the
-// same interface the port will publish on.
+// Allocate scans upward when the requested port is taken; the free check
+// probes the same interface the port will publish on.
 func Allocate(specs []string) ([]Mapping, error) {
 	used := map[int]bool{}
 	var maps []Mapping

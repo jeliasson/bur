@@ -1,7 +1,7 @@
-# bur - run AI agents (claude by default) in a rootless podman sandbox.
-# The project devshell is built on the host and /nix/store is mounted
-# read-only, so no per-project images exist. The minimal base image below
-# is built once per bur version and auto-loaded into podman by the CLI.
+# bur - run a command in a rootless podman sandbox.
+# The devshell is built on the host and /nix/store is mounted read-only, so
+# there are no per-project images. The base image below is built once per bur
+# version and auto-loaded into podman by the CLI.
 
 { lib
 , buildGoModule

@@ -13,8 +13,7 @@ import (
 	"time"
 )
 
-// Sandbox is a running bur container, reconstructed from podman labels -
-// bur keeps no state of its own.
+// Sandbox is reconstructed from podman labels: bur keeps no state of its own.
 type Sandbox struct {
 	Name    string
 	Root    string
@@ -53,8 +52,6 @@ func List() ([]Sandbox, error) {
 	return sbs, nil
 }
 
-// Resolve picks the sandbox an exec targets: the ones started for
-// this project root, with an interactive pick when several are running.
 func Resolve(root, cwd string) (Sandbox, error) {
 	all, err := List()
 	if err != nil {
@@ -76,8 +73,8 @@ func Resolve(root, cwd string) (Sandbox, error) {
 	return pickSandbox(cands)
 }
 
-// orderCandidates sorts newest-first, with sandboxes started from exactly
-// cwd on top - the picker default should be the one "here".
+// The picker default should be the sandbox started "here", so sandboxes
+// whose cwd matches exactly sort above the plain newest-first order.
 func orderCandidates(cands []Sandbox, cwd string) {
 	sort.SliceStable(cands, func(i, j int) bool {
 		if (cands[i].Cwd == cwd) != (cands[j].Cwd == cwd) {
@@ -124,9 +121,8 @@ func pickSandbox(cands []Sandbox) (Sandbox, error) {
 	return cands[n-1], nil
 }
 
-// MatchByName resolves an --in argument: exact container name, or a unique
-// suffix of one (`--in brave-otter`, or just `--in otter`, works without
-// the bur-<project>- prefix).
+// MatchByName accepts an exact container name or any unique suffix of one,
+// so the bur-<project>- prefix can be left off (`--in otter`).
 func MatchByName(all []Sandbox, arg string) (string, error) {
 	var suffix []string
 	for _, s := range all {
@@ -147,7 +143,6 @@ func MatchByName(all []Sandbox, arg string) (string, error) {
 	}
 }
 
-// Ls prints the `bur ls` table of running sandboxes.
 func Ls() error {
 	sbs, err := List()
 	if err != nil {
@@ -166,11 +161,9 @@ func Ls() error {
 	return w.Flush()
 }
 
-// Clean force-removes every bur container, running or not - the recovery
-// hatch for sandboxes orphaned by a dead terminal. Filtering on bur.agent
-// (set since the first release) also catches containers from older burs.
-// Returns how many containers were removed; the caller owns the
-// "nothing to clean" messaging (it also prunes devshell gc roots).
+// Clean filters on bur.agent (set since the first release) so containers from
+// older burs are caught too. Returns how many were removed: the caller owns
+// the "nothing to clean" messaging, as it prunes gc roots too.
 func Clean(force bool) (int, error) {
 	out, err := exec.Command("podman", "ps", "-a",
 		"--filter", "label=bur.agent", "--format", "{{.Names}}").Output()
@@ -219,7 +212,6 @@ func fmtAge(t time.Time) string {
 	}
 }
 
-// AbbrevHome shortens a path with the ~ convention for display.
 func AbbrevHome(p string) string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
